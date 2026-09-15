@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Bank &mdash; the dice game</title>
+<style>
+  :root{
+    --vault: #12352B;
+    --vault-deep: #0B241D;
+    --vault-line: #2A5443;
+    --ledger: #F4ECD8;
+    --ledger-line: #D9CCA6;
+    --brass: #C69B2E;
+    --brass-dark: #9C7A20;
+    --brass-light: #E8C765;
+    --ink: #1F2A24;
+    --ink-soft: #5B6B5F;
+    --alert: #B4432E;
+    --alert-dark: #8A3222;
+    --good: #3F7A57;
+    --radius: 10px;
+    font-size: 16px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse at top, rgba(255,255,255,0.05), transparent 60%),
+      var(--vault);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: clamp(16px, 4vw, 48px) 16px;
+  }
+
+  .page{
+    width: 100%;
+    max-width: 640px;
+  }
+
+  .brand{
+    text-align: center;
+    color: var(--ledger);
+    margin-bottom: 20px;
+  }
+  .brand .mark{
+    font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: clamp(1.9rem, 5vw, 2.6rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 0;
+  }
+  .brand .sub{
+    margin: 4px 0 0;
+    color: var(--brass-light);
+    font-size: 0.85rem;
+  }
+
+  .ledger{
+    background: var(--ledger);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.35), inset 0 0 0 1px var(--ledger-line);
+    overflow: hidden;
+  }
+
+  .ledger-band{
+    background: var(--vault);
+    color: var(--ledger);
+    padding: 14px 22px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 3px solid var(--brass);
+  }
+  .ledger-band h2{
+    font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+    font-size: 1.15rem;
+    margin: 0;
+    font-weight: 600;
+  }
+  .ledger-band .meta{
+    font-size: 0.8rem;
+    color: var(--brass-light);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ledger-body{
+    padding: 22px;
+  }
+
+  /* ---------- Setup screen ---------- */
+  fieldset{
+    border: none;
+    margin: 0 0 22px;
+    padding: 0;
+  }
+  legend{
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+    padding: 0;
+  }
+  .field-row{
+    display: flex;
+    gap: 8px;
+  }
+  input[type="text"], input[type="number"]{
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid var(--ledger-line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ink);
+    width: 100%;
+  }
+  input[type="text"]:focus-visible, input[type="number"]:focus-visible, button:focus-visible{
+    outline: 2px solid var(--vault-line);
+    outline-offset: 2px;
+  }
+
+  .btn{
+    font: inherit;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: transform 0.06s ease, filter 0.15s ease;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn:disabled{ opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  .btn-brass{
+    background: linear-gradient(180deg, var(--brass-light), var(--brass) 55%, var(--brass-dark));
+    color: #2B2109;
+    box-shadow: 0 2px 0 var(--brass-dark), 0 4px 10px rgba(0,0,0,0.25);
+  }
+  .btn-brass:hover:not(:disabled){ filter: brightness(1.05); }
+
+  .btn-outline{
+    background: transparent;
+    color: var(--vault);
+    box-shadow: inset 0 0 0 1.5px var(--vault-line);
+  }
+  .btn-outline:hover:not(:disabled){ background: rgba(18,53,43,0.06); }
+
+  .btn-ghost{
+    background: transparent;
+    color: var(--ink-soft);
+    padding: 6px 10px;
+    font-weight: 500;
+  }
+  .btn-ghost:hover:not(:disabled){ color: var(--alert); }
+
+  .player-list{
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    border-top: 1px solid var(--ledger-line);
+  }
+  .player-row{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 2px;
+    background: #fff;
+    border-bottom: 1px solid var(--ledger-line);
+    touch-action: manipulation;
+  }
+  .player-row.dragging{
+    background: rgba(198,155,46,0.16);
+    box-shadow: inset 0 0 0 1.5px var(--brass);
+  }
+  .drag-handle{
+    background: none;
+    border: none;
+    cursor: grab;
+    color: var(--ink-soft);
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 6px 4px;
+    touch-action: none;
+    border-radius: 6px;
+  }
+  .drag-handle:hover{ color: var(--vault); background: rgba(18,53,43,0.06); }
+  .player-row.dragging .drag-handle{ cursor: grabbing; color: var(--vault); }
+  .player-order{
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    color: var(--brass-dark);
+    width: 1.4em;
+    flex-shrink: 0;
+  }
+  .player-name{
+    flex: 1;
+    font-size: 0.92rem;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .row-actions{
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .row-btn{
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 6px 7px;
+    border-radius: 6px;
+  }
+  .row-btn:hover:not(:disabled){ background: rgba(18,53,43,0.06); color: var(--vault); }
+  .row-btn:disabled{ opacity: 0.3; cursor: default; }
+  .row-remove{
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 6px 7px;
+    border-radius: 50%;
+  }
+  .row-remove:hover{ background: rgba(180,67,46,0.12); color: var(--alert); }
+  .hint{ font-size: 0.82rem; color: var(--ink-soft); margin-top: 8px; }
+
+  .segmented{
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .segmented button{
+    font: inherit;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1.5px solid var(--ledger-line);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .segmented button[aria-pressed="true"]{
+    background: var(--vault);
+    border-color: var(--vault);
+    color: var(--ledger);
+  }
+  .custom-rounds{
+    margin-top: 10px;
+    max-width: 140px;
+  }
+
+  details.howto{
+    margin-top: 4px;
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+  }
+  details.howto summary{
+    cursor: pointer;
+    color: var(--vault);
+    font-weight: 600;
+  }
+  details.howto ul{ padding-left: 20px; }
+  details.howto li{ margin-bottom: 6px; }
+
+  /* ---------- Game screen ---------- */
+  .bank-display{
+    text-align: center;
+    padding: 18px 0 6px;
+  }
+  .bank-label{
+    text-transform: none;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin: 0 0 2px;
+  }
+  .bank-value{
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(2.6rem, 11vw, 3.6rem);
+    font-weight: 700;
+    color: var(--vault);
+    margin: 0;
+    line-height: 1.1;
+  }
+  .roll-phase{
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    min-height: 1.2em;
+  }
+  .roll-phase.warn{ color: var(--alert); font-weight: 600; }
+
+  .dice-tray{
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin: 16px 0;
+  }
+  .die{
+    width: 62px;
+    height: 62px;
+    border-radius: 12px;
+    background: linear-gradient(160deg, #fff, #EDE3C6);
+    box-shadow: 0 4px 0 var(--ledger-line), 0 8px 16px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.6rem;
+    color: var(--vault);
+  }
+  .die.rolling{ animation: tumble 0.32s ease-in-out; }
+  @keyframes tumble{
+    0%{ transform: rotate(0deg) scale(1); }
+    50%{ transform: rotate(18deg) scale(1.08); }
+    100%{ transform: rotate(0deg) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .die.rolling{ animation: none; }
+  }
+
+  .roll-btn-wrap{ text-align: center; margin-bottom: 22px; }
+  .roll-btn{
+    font-size: 1.05rem;
+    padding: 14px 44px;
+    border-radius: 999px;
+  }
+
+  .game-controls{
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .btn.small{
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  table.players{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+  table.players caption{
+    text-align: left;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+  table.players th, table.players td{
+    padding: 10px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--ledger-line);
+  }
+  table.players th{
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  table.players td.num, table.players th.num{
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  }
+  .potential-total{
+    font-size: 0.74rem;
+    font-family: ui-monospace, "SF Mono", Consolas, monospace;
+    color: var(--brass-dark);
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+  .status-active{ color: var(--good); font-weight: 600; }
+  .status-banked{ color: var(--brass-dark); font-weight: 600; }
+  .status-bust{ color: var(--alert); font-weight: 600; }
+
+  table.players tr.current-roller{
+    background: rgba(198,155,46,0.16);
+  }
+  table.players tr.current-roller td:first-child{
+    font-weight: 700;
+    border-left: 3px solid var(--brass);
+    padding-left: 5px;
+  }
+
+  .bank-player-btn{
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    border-radius: 999px;
+  }
+
+  /* ---------- Overlay (round result) ---------- */
+  .overlay{
+    position: fixed;
+    inset: 0;
+    background: rgba(11,36,29,0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 10;
+  }
+  .overlay[hidden]{ display: none; }
+  .stamp-card{
+    background: var(--ledger);
+    border-radius: var(--radius);
+    max-width: 420px;
+    width: 100%;
+    padding: 28px 26px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+  .stamp{
+    display: inline-block;
+    font-family: ui-serif, Georgia, serif;
+    font-weight: 700;
+    font-size: 1.7rem;
+    padding: 6px 22px;
+    border: 3px solid currentColor;
+    border-radius: 8px;
+    transform: rotate(-3deg);
+    margin-bottom: 14px;
+  }
+  .stamp.bust{ color: var(--alert); }
+  .stamp.clear{ color: var(--good); }
+  .stamp-card p{ margin: 6px 0; }
+  .round-scores{
+    list-style: none;
+    padding: 0;
+    margin: 16px 0;
+    text-align: left;
+    font-size: 0.92rem;
+  }
+  .round-scores li{
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--ledger-line);
+  }
+  .round-scores span.pts{ font-variant-numeric: tabular-nums; font-family: ui-monospace, monospace; }
+
+  /* ---------- Final screen ---------- */
+  .standings{
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+  }
+  .standings li{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: #fff;
+    border: 1px solid var(--ledger-line);
+  }
+  .standings li.winner{
+    background: linear-gradient(180deg, #FFF7E2, #FCEFC6);
+    border-color: var(--brass);
+  }
+  .standings .place{
+    font-weight: 700;
+    color: var(--vault);
+    width: 28px;
+  }
+  .standings .name{ flex: 1; margin-left: 6px; }
+  .standings .score{
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, monospace;
+    font-weight: 700;
+  }
+
+  .history{
+    margin-top: 18px;
+  }
+  .history table{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  .history th, .history td{
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--ledger-line);
+    text-align: right;
+  }
+  .history th:first-child, .history td:first-child{ text-align: left; }
+
+  .actions-row{
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-top: 18px;
+  }
+
+  [hidden]{ display: none !important; }
+
+  .visually-hidden{
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand">
+    <p class="mark">Bank</p>
+    <p class="sub">a press-your-luck dice game</p>
+  </div>
+
+  <!-- SETUP SCREEN -->
+  <section id="screen-setup" class="ledger">
+    <div class="ledger-band">
+      <h2>New game</h2>
+    </div>
+    <div class="ledger-body">
+      <fieldset>
+        <legend>Players</legend>
+        <div class="field-row">
+          <input type="text" id="player-name-input" placeholder="Player name" maxlength="24" autocomplete="off">
+          <button type="button" class="btn btn-outline" id="add-player-btn">Add</button>
+        </div>
+        <ul class="player-list" id="player-chip-list" aria-live="polite"></ul>
+        <p class="hint" id="player-hint">Add at least one player. Bank plays best with 2 or more.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Rounds</legend>
+        <div class="segmented" id="rounds-segmented" role="group" aria-label="Number of rounds">
+          <button type="button" data-rounds="3" aria-pressed="false">3</button>
+          <button type="button" data-rounds="6" aria-pressed="false">6</button>
+          <button type="button" data-rounds="12" aria-pressed="true">12</button>
+          <button type="button" data-rounds="custom" aria-pressed="false">Custom</button>
+        </div>
+        <input type="number" id="custom-rounds-input" class="custom-rounds" min="1" max="999" value="9" hidden aria-label="Custom number of rounds">
+      </fieldset>
+
+      <details class="howto">
+        <summary>How to play</summary>
+        <ul>
+          <li>Each round starts with a shared Bank of 0. Players take turns rolling two dice; every roll changes the Bank for everyone.</li>
+          <li><strong>Rolls 1&ndash;3</strong> of a round: rolling a 7 adds <strong>70</strong> to the Bank. Any other roll, including doubles, just adds the sum.</li>
+          <li><strong>Roll 4 onward</strong>: rolling a 7 <strong>busts</strong> the round &mdash; the Bank drops to 0 and anyone who hasn't banked yet scores 0. Rolling doubles <strong>doubles</strong> the current Bank.</li>
+          <li>At any point, a player can hit <strong>Bank</strong> to lock in the current Bank total as their score for the round, then sit out until the next round.</li>
+          <li>The round ends when everyone has banked, or a bust happens. Highest total after all rounds wins.</li>
+        </ul>
+      </details>
+
+      <div class="actions-row">
+        <button type="button" class="btn btn-brass" id="start-game-btn">Start game</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME SCREEN -->
+  <section id="screen-game" class="ledger" hidden>
+    <div class="ledger-band">
+      <h2>Round <span id="round-current">1</span> of <span id="round-total">12</span></h2>
+      <span class="meta" id="roll-count-label">Roll 0</span>
+    </div>
+    <div class="ledger-body">
+      <div class="game-controls">
+        <button type="button" class="btn btn-ghost small" id="restart-btn">Restart</button>
+        <button type="button" class="btn btn-ghost small" id="exit-btn">Exit to setup</button>
+      </div>
+
+      <div class="bank-display">
+        <p class="bank-label">The Bank</p>
+        <p class="bank-value" id="bank-value" aria-live="polite">0</p>
+        <p class="roll-phase" id="roll-phase-label"></p>
+      </div>
+
+      <div class="dice-tray" aria-hidden="true">
+        <div class="die" id="die-1">&#8203;</div>
+        <div class="die" id="die-2">&#8203;</div>
+      </div>
+
+      <p class="visually-hidden" id="roller-line" aria-live="polite"></p>
+
+      <div class="roll-btn-wrap">
+        <button type="button" class="btn btn-brass roll-btn" id="roll-btn">Roll</button>
+      </div>
+
+      <table class="players">
+        <caption>Players</caption>
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Status</th>
+            <th scope="col" class="num">Total</th>
+            <th scope="col"></th>
+          </tr>
+        </thead>
+        <tbody id="players-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- FINAL SCREEN -->
+  <section id="screen-final" class="ledger" hidden>
+    <div class="ledger-band">
+      <h2>Final results</h2>
+    </div>
+    <div class="ledger-body">
+      <ul class="standings" id="standings-list"></ul>
+
+      <details class="history">
+        <summary style="cursor:pointer; font-weight:600; color: var(--vault);">Round-by-round history</summary>
+        <div id="history-table-wrap"></div>
+      </details>
+
+      <div class="actions-row">
+        <button type="button" class="btn btn-outline" id="play-again-btn">Play again, same players</button>
+        <button type="button" class="btn btn-brass" id="new-game-btn">New game</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Round result overlay -->
+<div class="overlay" id="round-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="overlay-stamp">
+  <div class="stamp-card">
+    <div class="stamp" id="overlay-stamp"></div>
+    <p id="overlay-message"></p>
+    <ul class="round-scores" id="overlay-scores"></ul>
+    <button type="button" class="btn btn-brass" id="continue-btn">Continue</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     Pure game logic (no DOM). Kept separate so it can be
+     unit-tested directly from Node with deterministic dice.
+     ========================================================= */
+
+  function createInitialState(playerNames, roundsTotal){
+    return {
+      players: playerNames.map(function(name){
+        return { name: name, total: 0, roundScore: null, banked: false };
+      }),
+      roundsTotal: roundsTotal,
+      currentRound: 1,
+      bank: 0,
+      rollCount: 0,
+      roundOver: false,
+      bustThisRound: false,
+      gameOver: false,
+      currentRollerIndex: 0,
+      history: []
+    };
+  }
+
+  // Core scoring reducer for a single roll. Pure function of the
+  // bank value, the two dice, and how many rolls have happened
+  // so far THIS round (before this roll).
+  function computeBankAfterRoll(bank, d1, d2, rollCountBefore){
+    var newRollCount = rollCountBefore + 1;
+    var sum = d1 + d2;
+    var isDouble = d1 === d2;
+
+    if(newRollCount <= 3){
+      if(sum === 7){
+        return { newBank: bank + 70, bust: false, newRollCount: newRollCount };
+      }
+      return { newBank: bank + sum, bust: false, newRollCount: newRollCount };
+    }
+
+    if(sum === 7){
+      return { newBank: 0, bust: true, newRollCount: newRollCount };
+    }
+    if(isDouble){
+      return { newBank: bank * 2, bust: false, newRollCount: newRollCount };
+    }
+    return { newBank: bank + sum, bust: false, newRollCount: newRollCount };
+  }
+
+  // Moves currentRollerIndex to the next player who hasn't banked
+  // yet this round, wrapping around. Leaves it unchanged if every
+  // player is banked (shouldn't happen mid-round, since the round
+  // ends once everyone has banked).
+  function advanceRollerIndex(state){
+    var n = state.players.length;
+    for(var step = 1; step <= n; step++){
+      var idx = (state.currentRollerIndex + step) % n;
+      if(!state.players[idx].banked){
+        state.currentRollerIndex = idx;
+        return;
+      }
+    }
+  }
+
+  // Applies a roll to game state. Returns { state, roundJustEnded }.
+  function applyRoll(state, d1, d2){
+    if(state.roundOver || state.gameOver){
+      return { state: state, roundJustEnded: false };
+    }
+    var result = computeBankAfterRoll(state.bank, d1, d2, state.rollCount);
+    state.bank = result.newBank;
+    state.rollCount = result.newRollCount;
+
+    var roundJustEnded = false;
+    if(result.bust){
+      state.players.forEach(function(p){
+        if(!p.banked){
+          p.roundScore = 0;
+          p.banked = true;
+        }
+      });
+      state.roundOver = true;
+      state.bustThisRound = true;
+      roundJustEnded = true;
+    } else {
+      advanceRollerIndex(state);
+    }
+    return { state: state, roundJustEnded: roundJustEnded };
+  }
+
+  // Applies a "Bank" action for one player. Returns { state, roundJustEnded }.
+  function applyBank(state, playerIndex){
+    if(state.roundOver || state.gameOver){
+      return { state: state, roundJustEnded: false };
+    }
+    var p = state.players[playerIndex];
+    if(!p || p.banked){
+      return { state: state, roundJustEnded: false };
+    }
+    p.banked = true;
+    p.roundScore = state.bank;
+
+    var allBanked = state.players.every(function(pl){ return pl.banked; });
+    var roundJustEnded = false;
+    if(allBanked){
+      state.roundOver = true;
+      state.bustThisRound = false;
+      roundJustEnded = true;
+    } else if(playerIndex === state.currentRollerIndex){
+      // The player who just banked was up next to roll — skip them.
+      advanceRollerIndex(state);
+    }
+    return { state: state, roundJustEnded: roundJustEnded };
+  }
+
+  // Adds each player's locked round score to their total and
+  // records a history entry. Call once, right when a round ends.
+  function finalizeRound(state){
+    var snapshot = { round: state.currentRound, bank: state.bank, bust: state.bustThisRound, scores: {} };
+    state.players.forEach(function(p){
+      var pts = p.roundScore || 0;
+      p.total += pts;
+      snapshot.scores[p.name] = pts;
+    });
+    state.history.push(snapshot);
+    return state;
+  }
+
+  // Advances to the next round, or marks the game over if the
+  // configured number of rounds has been completed.
+  function startNextRound(state){
+    if(state.currentRound >= state.roundsTotal){
+      state.gameOver = true;
+      return state;
+    }
+    state.currentRound += 1;
+    state.bank = 0;
+    state.rollCount = 0;
+    state.roundOver = false;
+    state.bustThisRound = false;
+    state.players.forEach(function(p){
+      p.banked = false;
+      p.roundScore = null;
+    });
+    return state;
+  }
+
+  function computeStandings(state){
+    var maxTotal = -Infinity;
+    state.players.forEach(function(p){ if(p.total > maxTotal) maxTotal = p.total; });
+    var ranked = state.players.slice().sort(function(a,b){ return b.total - a.total; });
+    return ranked.map(function(p){ return { name: p.name, total: p.total, isWinner: p.total === maxTotal }; });
+  }
+
+  /* Expose pure logic for Node-based unit testing only.
+     No-op in a browser (module is undefined). Placed here, before
+     any DOM access, so this file can be require()'d in plain
+     Node without a document being present. */
+  if(typeof module !== 'undefined' && module.exports){
+    module.exports = {
+      createInitialState: createInitialState,
+      computeBankAfterRoll: computeBankAfterRoll,
+      advanceRollerIndex: advanceRollerIndex,
+      applyRoll: applyRoll,
+      applyBank: applyBank,
+      finalizeRound: finalizeRound,
+      startNextRound: startNextRound,
+      computeStandings: computeStandings
+    };
+    return;
+  }
+
+  /* =========================================================
+     DOM layer
+     ========================================================= */
+
+  var els = {
+    setup: document.getElementById('screen-setup'),
+    game: document.getElementById('screen-game'),
+    final: document.getElementById('screen-final'),
+
+    nameInput: document.getElementById('player-name-input'),
+    addPlayerBtn: document.getElementById('add-player-btn'),
+    chipList: document.getElementById('player-chip-list'),
+    playerHint: document.getElementById('player-hint'),
+    roundsSegmented: document.getElementById('rounds-segmented'),
+    customRoundsInput: document.getElementById('custom-rounds-input'),
+    startGameBtn: document.getElementById('start-game-btn'),
+
+    restartBtn: document.getElementById('restart-btn'),
+    exitBtn: document.getElementById('exit-btn'),
+
+    roundCurrent: document.getElementById('round-current'),
+    roundTotal: document.getElementById('round-total'),
+    rollCountLabel: document.getElementById('roll-count-label'),
+    bankValue: document.getElementById('bank-value'),
+    rollPhaseLabel: document.getElementById('roll-phase-label'),
+    die1: document.getElementById('die-1'),
+    die2: document.getElementById('die-2'),
+    rollerLine: document.getElementById('roller-line'),
+    rollBtn: document.getElementById('roll-btn'),
+    playersTbody: document.getElementById('players-tbody'),
+
+    overlay: document.getElementById('round-overlay'),
+    overlayStamp: document.getElementById('overlay-stamp'),
+    overlayMessage: document.getElementById('overlay-message'),
+    overlayScores: document.getElementById('overlay-scores'),
+    continueBtn: document.getElementById('continue-btn'),
+
+    standingsList: document.getElementById('standings-list'),
+    historyWrap: document.getElementById('history-table-wrap'),
+    playAgainBtn: document.getElementById('play-again-btn'),
+    newGameBtn: document.getElementById('new-game-btn')
+  };
+
+  var DIE_FACES = ['', '\u2680', '\u2681', '\u2682', '\u2683', '\u2684', '\u2685'];
+
+  var pendingNames = [];
+  var selectedRoundsOption = '12';
+  var game = null;
+  var dragState = null; // { name: <player currently being dragged> } or null
+
+  /* ---------- Setup screen ---------- */
+
+  function renderChips(){
+    els.chipList.innerHTML = '';
+    pendingNames.forEach(function(name, idx){
+      var li = document.createElement('li');
+      li.className = 'player-row' + (dragState && dragState.name === name ? ' dragging' : '');
+      li.setAttribute('data-name', name);
+
+      var handle = document.createElement('button');
+      handle.type = 'button';
+      handle.className = 'drag-handle';
+      handle.setAttribute('aria-label', 'Drag to reorder ' + name);
+      handle.textContent = '\u283F'; // braille-pattern grip glyph
+      handle.addEventListener('pointerdown', function(e){
+        if(e.button !== undefined && e.button !== 0) return; // left click / primary touch only
+        e.preventDefault();
+        beginDrag(name);
+      });
+      li.appendChild(handle);
+
+      var order = document.createElement('span');
+      order.className = 'player-order';
+      order.textContent = (idx + 1) + '.';
+      li.appendChild(order);
+
+      var nameSpan = document.createElement('span');
+      nameSpan.className = 'player-name';
+      nameSpan.textContent = name;
+      li.appendChild(nameSpan);
+
+      var actions = document.createElement('div');
+      actions.className = 'row-actions';
+
+      var upBtn = document.createElement('button');
+      upBtn.type = 'button';
+      upBtn.className = 'row-btn';
+      upBtn.setAttribute('aria-label', 'Move ' + name + ' up');
+      upBtn.textContent = '\u2191';
+      upBtn.disabled = idx === 0;
+      upBtn.addEventListener('click', function(){ moveInList(name, -1); });
+      actions.appendChild(upBtn);
+
+      var downBtn = document.createElement('button');
+      downBtn.type = 'button';
+      downBtn.className = 'row-btn';
+      downBtn.setAttribute('aria-label', 'Move ' + name + ' down');
+      downBtn.textContent = '\u2193';
+      downBtn.disabled = idx === pendingNames.length - 1;
+      downBtn.addEventListener('click', function(){ moveInList(name, 1); });
+      actions.appendChild(downBtn);
+
+      var removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'row-remove';
+      removeBtn.setAttribute('aria-label', 'Remove ' + name);
+      removeBtn.textContent = '\u00D7';
+      removeBtn.addEventListener('click', function(){
+        pendingNames.splice(pendingNames.indexOf(name), 1);
+        renderChips();
+      });
+      actions.appendChild(removeBtn);
+
+      li.appendChild(actions);
+      els.chipList.appendChild(li);
+    });
+    els.playerHint.textContent = pendingNames.length === 0
+      ? 'Add at least one player. Bank plays best with 2 or more.'
+      : (pendingNames.length === 1
+        ? 'Solo mode: you are just chasing a high score.'
+        : pendingNames.length + ' players ready. Turn order follows the list \u2014 drag \u283F or use \u2191/\u2193 to reorder.');
+  }
+
+  function moveInList(name, direction){
+    var idx = pendingNames.indexOf(name);
+    var target = idx + direction;
+    if(idx === -1 || target < 0 || target >= pendingNames.length) return;
+    var tmp = pendingNames[target];
+    pendingNames[target] = pendingNames[idx];
+    pendingNames[idx] = tmp;
+    renderChips();
+  }
+
+  function beginDrag(name){
+    dragState = { name: name };
+    els.chipList.removeAttribute('aria-live'); // avoid a flood of announcements while dragging
+    renderChips();
+    document.addEventListener('pointermove', onDragPointerMove);
+    document.addEventListener('pointerup', onDragPointerEnd);
+    document.addEventListener('pointercancel', onDragPointerEnd);
+  }
+
+  function onDragPointerMove(e){
+    if(!dragState) return;
+    var el = document.elementFromPoint(e.clientX, e.clientY);
+    var targetLi = el && el.closest ? el.closest('li.player-row') : null;
+    if(!targetLi) return;
+    var targetName = targetLi.getAttribute('data-name');
+    if(targetName === dragState.name) return;
+    var fromIdx = pendingNames.indexOf(dragState.name);
+    var toIdx = pendingNames.indexOf(targetName);
+    if(fromIdx === -1 || toIdx === -1) return;
+    pendingNames.splice(fromIdx, 1);
+    pendingNames.splice(toIdx, 0, dragState.name);
+    renderChips();
+  }
+
+  function onDragPointerEnd(){
+    dragState = null;
+    document.removeEventListener('pointermove', onDragPointerMove);
+    document.removeEventListener('pointerup', onDragPointerEnd);
+    document.removeEventListener('pointercancel', onDragPointerEnd);
+    els.chipList.setAttribute('aria-live', 'polite');
+    renderChips();
+  }
+
+  function addPlayerFromInput(){
+    var raw = els.nameInput.value.trim();
+    if(!raw) return;
+    var name = raw;
+    var suffix = 2;
+    while(pendingNames.indexOf(name) !== -1){
+      name = raw + ' (' + suffix + ')';
+      suffix += 1;
+    }
+    pendingNames.push(name);
+    els.nameInput.value = '';
+    els.nameInput.focus();
+    renderChips();
+  }
+
+  els.addPlayerBtn.addEventListener('click', addPlayerFromInput);
+  els.nameInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      addPlayerFromInput();
+    }
+  });
+
+  Array.prototype.forEach.call(els.roundsSegmented.querySelectorAll('button'), function(btn){
+    btn.addEventListener('click', function(){
+      selectedRoundsOption = btn.getAttribute('data-rounds');
+      Array.prototype.forEach.call(els.roundsSegmented.querySelectorAll('button'), function(b){
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      els.customRoundsInput.hidden = selectedRoundsOption !== 'custom';
+      if(selectedRoundsOption === 'custom') els.customRoundsInput.focus();
+    });
+  });
+
+  function getRoundsTotal(){
+    if(selectedRoundsOption === 'custom'){
+      var v = parseInt(els.customRoundsInput.value, 10);
+      if(!v || v < 1) v = 1;
+      return v;
+    }
+    return parseInt(selectedRoundsOption, 10);
+  }
+
+  els.startGameBtn.addEventListener('click', function(){
+    if(pendingNames.length === 0){
+      els.playerHint.textContent = 'Add at least one player to start.';
+      els.playerHint.style.color = 'var(--alert)';
+      return;
+    }
+    startGame(pendingNames.slice(), getRoundsTotal());
+  });
+
+  /* ---------- Game screen ---------- */
+
+  function startGame(names, roundsTotal){
+    game = createInitialState(names, roundsTotal);
+    els.setup.hidden = true;
+    els.final.hidden = true;
+    els.game.hidden = false;
+    els.roundTotal.textContent = String(roundsTotal);
+    renderGameScreen();
+  }
+
+  function phaseLabelFor(state){
+    if(state.roundOver) return '';
+    if(state.rollCount < 3){
+      var from = state.rollCount + 1;
+      var range = (from === 3) ? 'Roll 3' : ('Rolls ' + from + '\u20133');
+      return range + ': a 7 pays 70. No bust yet.';
+    }
+    return 'Roll ' + (state.rollCount + 1) + ': a 7 busts the round. Doubles double the Bank.';
+  }
+
+  function renderPlayersTable(state){
+    els.playersTbody.innerHTML = '';
+    state.players.forEach(function(p, idx){
+      var tr = document.createElement('tr');
+      if(state.players.length > 1 && idx === state.currentRollerIndex){
+        tr.className = 'current-roller';
+      }
+
+      var tdName = document.createElement('td');
+      tdName.textContent = p.name;
+      tr.appendChild(tdName);
+
+      var tdStatus = document.createElement('td');
+      if(!p.banked){
+        tdStatus.textContent = 'In the round';
+        tdStatus.className = 'status-active';
+      } else if(state.bustThisRound && p.roundScore === 0){
+        tdStatus.textContent = 'Bust \u2014 0';
+        tdStatus.className = 'status-bust';
+      } else {
+        tdStatus.textContent = 'Banked ' + p.roundScore.toLocaleString();
+        tdStatus.className = 'status-banked';
+      }
+      tr.appendChild(tdStatus);
+
+      var tdTotal = document.createElement('td');
+      tdTotal.className = 'num';
+      var totalMain = document.createElement('div');
+      totalMain.className = 'total-main';
+      totalMain.textContent = p.total.toLocaleString();
+      tdTotal.appendChild(totalMain);
+      if(!p.banked && !state.roundOver){
+        var potential = p.total + state.bank;
+        var potentialLine = document.createElement('div');
+        potentialLine.className = 'potential-total';
+        potentialLine.textContent = '\u2192 ' + potential.toLocaleString() + ' if banked';
+        tdTotal.appendChild(potentialLine);
+      }
+      tr.appendChild(tdTotal);
+
+      var tdAction = document.createElement('td');
+      if(!p.banked && !state.roundOver){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-brass bank-player-btn';
+        btn.textContent = 'Bank';
+        btn.addEventListener('click', function(){ handleBankClick(idx); });
+        tdAction.appendChild(btn);
+      }
+      tr.appendChild(tdAction);
+
+      els.playersTbody.appendChild(tr);
+    });
+  }
+
+  function renderGameScreen(){
+    els.roundCurrent.textContent = String(game.currentRound);
+    els.rollCountLabel.textContent = 'Roll ' + game.rollCount;
+    els.bankValue.textContent = game.bank.toLocaleString();
+    els.rollPhaseLabel.textContent = phaseLabelFor(game);
+    els.rollPhaseLabel.className = 'roll-phase' + (game.rollCount >= 3 ? ' warn' : '');
+    els.rollBtn.disabled = game.roundOver;
+
+    els.rollerLine.textContent = (game.players.length > 1)
+      ? game.players[game.currentRollerIndex].name + ' is next to roll.'
+      : '';
+
+    renderPlayersTable(game);
+  }
+
+  function animateDiceAndRoll(){
+    if(!game || game.roundOver) return;
+    els.rollBtn.disabled = true;
+
+    var d1 = 1 + Math.floor(Math.random() * 6);
+    var d2 = 1 + Math.floor(Math.random() * 6);
+
+    els.die1.classList.add('rolling');
+    els.die2.classList.add('rolling');
+
+    window.setTimeout(function(){
+      els.die1.classList.remove('rolling');
+      els.die2.classList.remove('rolling');
+      els.die1.textContent = DIE_FACES[d1];
+      els.die2.textContent = DIE_FACES[d2];
+
+      var outcome = applyRoll(game, d1, d2);
+      renderGameScreen();
+
+      if(outcome.roundJustEnded){
+        finalizeRound(game);
+        showRoundOverlay(game);
+      }
+    }, 320);
+  }
+
+  els.rollBtn.addEventListener('click', animateDiceAndRoll);
+
+  function handleBankClick(playerIndex){
+    if(!game) return;
+    var outcome = applyBank(game, playerIndex);
+    renderGameScreen();
+    if(outcome.roundJustEnded){
+      finalizeRound(game);
+      showRoundOverlay(game);
+    }
+  }
+
+  /* ---------- Round overlay ---------- */
+
+  function showRoundOverlay(state){
+    if(state.bustThisRound){
+      els.overlayStamp.textContent = 'BUST';
+      els.overlayStamp.className = 'stamp bust';
+      els.overlayMessage.textContent = 'A 7 wiped the Bank. Anyone still in the round scores 0.';
+    } else {
+      els.overlayStamp.textContent = 'ROUND CLEAR';
+      els.overlayStamp.className = 'stamp clear';
+      els.overlayMessage.textContent = 'Everyone banked. Here\u2019s what each player locked in:';
+    }
+    var lastRound = state.history[state.history.length - 1];
+    els.overlayScores.innerHTML = '';
+    state.players.forEach(function(p){
+      var li = document.createElement('li');
+      var nameSpan = document.createElement('span');
+      nameSpan.textContent = p.name;
+      var ptsSpan = document.createElement('span');
+      ptsSpan.className = 'pts';
+      var pts = lastRound.scores[p.name] || 0;
+      ptsSpan.textContent = '+' + pts.toLocaleString();
+      li.appendChild(nameSpan);
+      li.appendChild(ptsSpan);
+      els.overlayScores.appendChild(li);
+    });
+
+    els.continueBtn.textContent = (state.currentRound >= state.roundsTotal) ? 'See final results' : 'Next round';
+    els.overlay.hidden = false;
+    els.continueBtn.focus();
+  }
+
+  els.continueBtn.addEventListener('click', function(){
+    els.overlay.hidden = true;
+    startNextRound(game);
+    if(game.gameOver){
+      showFinalScreen(game);
+    } else {
+      renderGameScreen();
+    }
+  });
+
+  /* ---------- Final screen ---------- */
+
+  function showFinalScreen(state){
+    els.game.hidden = true;
+    els.final.hidden = false;
+
+    var standings = computeStandings(state);
+    els.standingsList.innerHTML = '';
+    standings.forEach(function(s, idx){
+      var li = document.createElement('li');
+      if(s.isWinner) li.className = 'winner';
+      var place = document.createElement('span');
+      place.className = 'place';
+      place.textContent = (idx + 1) + '.';
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = s.name + (s.isWinner ? ' \u2014 winner' : '');
+      var score = document.createElement('span');
+      score.className = 'score';
+      score.textContent = s.total.toLocaleString();
+      li.appendChild(place);
+      li.appendChild(name);
+      li.appendChild(score);
+      els.standingsList.appendChild(li);
+    });
+
+    renderHistoryTable(state);
+  }
+
+  function renderHistoryTable(state){
+    var table = document.createElement('table');
+    var thead = document.createElement('thead');
+    var headRow = document.createElement('tr');
+    headRow.appendChild(document.createElement('th')).textContent = 'Round';
+    state.players.forEach(function(p){
+      headRow.appendChild(document.createElement('th')).textContent = p.name;
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    var tbody = document.createElement('tbody');
+    state.history.forEach(function(entry){
+      var tr = document.createElement('tr');
+      var tdRound = document.createElement('td');
+      tdRound.textContent = String(entry.round) + (entry.bust ? ' (bust)' : '');
+      tr.appendChild(tdRound);
+      state.players.forEach(function(p){
+        var td = document.createElement('td');
+        td.textContent = '+' + (entry.scores[p.name] || 0).toLocaleString();
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+
+    els.historyWrap.innerHTML = '';
+    els.historyWrap.appendChild(table);
+  }
+
+  // Restarts the current game from round 1 with the same players
+  // and the same round count. Shared by the final screen's "Play
+  // again" and the in-game "Restart" control.
+  function restartWithSamePlayers(){
+    var names = game.players.map(function(p){ return p.name; });
+    var roundsTotal = game.roundsTotal;
+    els.overlay.hidden = true;
+    els.game.hidden = true;
+    els.final.hidden = true;
+    startGame(names, roundsTotal);
+  }
+
+  // Sets the rounds segmented control / custom input to reflect a
+  // given round count, so leaving a game and returning to setup
+  // doesn't lose that choice.
+  function setRoundsSelectionFromValue(n){
+    var isPreset = (n === 3 || n === 6 || n === 12);
+    selectedRoundsOption = isPreset ? String(n) : 'custom';
+    Array.prototype.forEach.call(els.roundsSegmented.querySelectorAll('button'), function(b){
+      b.setAttribute('aria-pressed', b.getAttribute('data-rounds') === selectedRoundsOption ? 'true' : 'false');
+    });
+    els.customRoundsInput.hidden = isPreset;
+    if(!isPreset){
+      els.customRoundsInput.value = String(n);
+    }
+  }
+
+  // Leaves the current game and returns to setup. Pre-fills the
+  // player list and round count from the game being left so
+  // reconfiguring (add/remove a player, change round count) doesn't
+  // require retyping everyone's name.
+  function exitToSetupKeepingPlayers(){
+    pendingNames = game.players.map(function(p){ return p.name; });
+    renderChips();
+    setRoundsSelectionFromValue(game.roundsTotal);
+    els.overlay.hidden = true;
+    els.game.hidden = true;
+    els.final.hidden = true;
+    els.setup.hidden = false;
+    els.nameInput.focus();
+  }
+
+  els.restartBtn.addEventListener('click', function(){
+    if(window.confirm('Restart this game? Scores for all ' + game.roundsTotal + ' rounds will reset to zero.')){
+      restartWithSamePlayers();
+    }
+  });
+
+  els.exitBtn.addEventListener('click', function(){
+    if(window.confirm('Exit to setup? This game\u2019s progress will be lost.')){
+      exitToSetupKeepingPlayers();
+    }
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Escape') return;
+    if(els.game.hidden || !els.overlay.hidden) return;
+    if(window.confirm('Exit to setup? This game\u2019s progress will be lost.')){
+      exitToSetupKeepingPlayers();
+    }
+  });
+
+  els.playAgainBtn.addEventListener('click', restartWithSamePlayers);
+
+  els.newGameBtn.addEventListener('click', function(){
+    pendingNames = [];
+    renderChips();
+    els.final.hidden = true;
+    els.setup.hidden = false;
+    els.nameInput.focus();
+  });
+
+  renderChips();
+})();
+</script>
+</body>
+</html>
