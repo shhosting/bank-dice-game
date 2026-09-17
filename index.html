@@ -329,6 +329,50 @@
   }
 
   .roll-btn-wrap{ text-align: center; margin-bottom: 22px; }
+
+  .physical-dice-entry{ text-align: center; }
+  .physical-prompt{
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+  }
+  .sum-grid{
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .sum-btn{
+    font: inherit;
+    height: 44px;
+    width: 100%;
+    padding: 0 2px;
+    border-radius: 8px;
+    border: 1.5px solid var(--ledger-line);
+    background: #fff;
+    color: var(--vault);
+    font-weight: 700;
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .sum-btn:hover:not(:disabled){ border-color: var(--brass); }
+  .sum-btn:disabled{ opacity: 0.3; cursor: not-allowed; }
+  .sum-btn.doubles-btn{ font-size: 0.7rem; letter-spacing: 0.01em; }
+  .sum-btn.seven-positive{
+    border-color: var(--good);
+    color: var(--good);
+    background: rgba(63,122,87,0.08);
+  }
+  .sum-btn.seven-negative{
+    border-color: var(--alert);
+    color: var(--alert);
+    background: rgba(180,67,46,0.08);
+  }
   .roll-btn{
     font-size: 1.05rem;
     padding: 14px 44px;
@@ -435,6 +479,12 @@
   .stamp.bust{ color: var(--alert); }
   .stamp.clear{ color: var(--good); }
   .stamp-card p{ margin: 6px 0; }
+  .overlay-actions{
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 4px;
+  }
   .round-scores{
     list-style: none;
     padding: 0;
@@ -550,6 +600,15 @@
         <input type="number" id="custom-rounds-input" class="custom-rounds" min="1" max="999" value="9" hidden aria-label="Custom number of rounds">
       </fieldset>
 
+      <fieldset>
+        <legend>Dice</legend>
+        <div class="segmented" id="dice-mode-segmented" role="group" aria-label="Dice mode">
+          <button type="button" data-dice-mode="virtual" aria-pressed="true">App rolls</button>
+          <button type="button" data-dice-mode="physical" aria-pressed="false">I'll roll real dice</button>
+        </div>
+        <p class="hint">With real dice, you'll tap in what you rolled instead of the app rolling for you.</p>
+      </fieldset>
+
       <details class="howto">
         <summary>How to play</summary>
         <ul>
@@ -585,15 +644,23 @@
         <p class="roll-phase" id="roll-phase-label"></p>
       </div>
 
-      <div class="dice-tray" aria-hidden="true">
+      <div class="dice-tray" id="virtual-dice-section" aria-hidden="true">
         <div class="die" id="die-1">&#8203;</div>
         <div class="die" id="die-2">&#8203;</div>
       </div>
 
       <p class="visually-hidden" id="roller-line" aria-live="polite"></p>
 
-      <div class="roll-btn-wrap">
+      <div class="roll-btn-wrap" id="virtual-roll-wrap">
         <button type="button" class="btn btn-brass roll-btn" id="roll-btn">Roll</button>
+      </div>
+
+      <div class="physical-dice-entry" id="physical-dice-section" hidden>
+        <p class="physical-prompt">Tap what you rolled</p>
+        <div class="sum-grid" id="sum-grid" role="group" aria-label="Dice total or doubles"></div>
+        <div class="roll-btn-wrap">
+          <button type="button" class="btn btn-ghost small" id="undo-roll-btn" disabled>Undo last roll</button>
+        </div>
       </div>
 
       <table class="players">
@@ -638,7 +705,10 @@
     <div class="stamp" id="overlay-stamp"></div>
     <p id="overlay-message"></p>
     <ul class="round-scores" id="overlay-scores"></ul>
-    <button type="button" class="btn btn-brass" id="continue-btn">Continue</button>
+    <div class="overlay-actions">
+      <button type="button" class="btn btn-outline" id="overlay-undo-btn" hidden>Undo last roll</button>
+      <button type="button" class="btn btn-brass" id="continue-btn">Continue</button>
+    </div>
   </div>
 </div>
 
@@ -669,12 +739,13 @@
   }
 
   // Core scoring reducer for a single roll. Pure function of the
-  // bank value, the two dice, and how many rolls have happened
-  // so far THIS round (before this roll).
-  function computeBankAfterRoll(bank, d1, d2, rollCountBefore){
+  // bank value, the roll's sum and whether it was doubles, and how
+  // many rolls have happened so far THIS round (before this roll).
+  // Sum and isDouble (rather than individual die values) is all the
+  // scoring rules ever need, and it's also exactly what physical-dice
+  // entry captures, so both input paths feed the same shape here.
+  function computeBankAfterRoll(bank, sum, isDouble, rollCountBefore){
     var newRollCount = rollCountBefore + 1;
-    var sum = d1 + d2;
-    var isDouble = d1 === d2;
 
     if(newRollCount <= 3){
       if(sum === 7){
@@ -708,11 +779,11 @@
   }
 
   // Applies a roll to game state. Returns { state, roundJustEnded }.
-  function applyRoll(state, d1, d2){
+  function applyRoll(state, sum, isDouble){
     if(state.roundOver || state.gameOver){
       return { state: state, roundJustEnded: false };
     }
-    var result = computeBankAfterRoll(state.bank, d1, d2, state.rollCount);
+    var result = computeBankAfterRoll(state.bank, sum, isDouble, state.rollCount);
     state.bank = result.newBank;
     state.rollCount = result.newRollCount;
 
@@ -830,6 +901,7 @@
     playerHint: document.getElementById('player-hint'),
     roundsSegmented: document.getElementById('rounds-segmented'),
     customRoundsInput: document.getElementById('custom-rounds-input'),
+    diceModeSegmented: document.getElementById('dice-mode-segmented'),
     startGameBtn: document.getElementById('start-game-btn'),
 
     restartBtn: document.getElementById('restart-btn'),
@@ -840,16 +912,22 @@
     rollCountLabel: document.getElementById('roll-count-label'),
     bankValue: document.getElementById('bank-value'),
     rollPhaseLabel: document.getElementById('roll-phase-label'),
+    virtualDiceSection: document.getElementById('virtual-dice-section'),
+    virtualRollWrap: document.getElementById('virtual-roll-wrap'),
     die1: document.getElementById('die-1'),
     die2: document.getElementById('die-2'),
     rollerLine: document.getElementById('roller-line'),
     rollBtn: document.getElementById('roll-btn'),
+    physicalDiceSection: document.getElementById('physical-dice-section'),
+    sumGrid: document.getElementById('sum-grid'),
+    undoRollBtn: document.getElementById('undo-roll-btn'),
     playersTbody: document.getElementById('players-tbody'),
 
     overlay: document.getElementById('round-overlay'),
     overlayStamp: document.getElementById('overlay-stamp'),
     overlayMessage: document.getElementById('overlay-message'),
     overlayScores: document.getElementById('overlay-scores'),
+    overlayUndoBtn: document.getElementById('overlay-undo-btn'),
     continueBtn: document.getElementById('continue-btn'),
 
     standingsList: document.getElementById('standings-list'),
@@ -862,8 +940,10 @@
 
   var pendingNames = [];
   var selectedRoundsOption = '12';
+  var diceMode = 'virtual'; // 'virtual' (app rolls) or 'physical' (player enters real dice)
   var game = null;
   var dragState = null; // { name: <player currently being dragged> } or null
+  var lastGameSnapshot = null; // single-level undo: game state right before the most recent logged physical roll
 
   /* ---------- Setup screen ---------- */
 
@@ -1024,6 +1104,82 @@
     return parseInt(selectedRoundsOption, 10);
   }
 
+  Array.prototype.forEach.call(els.diceModeSegmented.querySelectorAll('button'), function(btn){
+    btn.addEventListener('click', function(){
+      diceMode = btn.getAttribute('data-dice-mode');
+      Array.prototype.forEach.call(els.diceModeSegmented.querySelectorAll('button'), function(b){
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+    });
+  });
+
+  // Grid order matches the requested layout: Doubles,2,3,4,5,6 / 7,8,9,10,11,12
+  // (a 6-column grid naturally wraps these 12 cells into exactly two rows).
+  function buildSumGrid(){
+    els.sumGrid.innerHTML = '';
+
+    var doublesBtn = document.createElement('button');
+    doublesBtn.type = 'button';
+    doublesBtn.className = 'sum-btn doubles-btn';
+    doublesBtn.setAttribute('data-kind', 'doubles');
+    doublesBtn.setAttribute('aria-label', 'Rolled doubles');
+    doublesBtn.textContent = 'Doubles';
+    doublesBtn.addEventListener('click', logDoublesRoll);
+    els.sumGrid.appendChild(doublesBtn);
+
+    for(var sum = 2; sum <= 12; sum++){
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sum-btn';
+      btn.setAttribute('data-sum', String(sum));
+      btn.setAttribute('aria-label', 'Rolled a total of ' + sum);
+      btn.textContent = String(sum);
+      btn.addEventListener('click', function(){
+        var s = parseInt(this.getAttribute('data-sum'), 10);
+        logPhysicalRoll(s, false);
+      });
+      els.sumGrid.appendChild(btn);
+    }
+  }
+  buildSumGrid();
+
+  // Disables 2 and 12 once the first 3 rolls of the round are done, since a
+  // sum of 2 or 12 is only ever possible as doubles (1+1 or 6+6) — past that
+  // point those must be logged with the Doubles button instead. Symmetrically,
+  // Doubles is disabled DURING the first 3 rolls: within that window a double
+  // just counts as its plain sum (same as any other roll), so the matching
+  // number button already covers it and Doubles has no distinct meaning yet.
+  // The 7 button is also highlighted to reflect its current effect: a bonus
+  // during the first 3 rolls, a bust after. The Undo button's own enabled
+  // state tracks lastGameSnapshot instead, since undoing a bust needs to
+  // work even after roundOver flips.
+  function refreshPhysicalDiceControls(){
+    var roundOver = !!(game && game.roundOver);
+    var inWindow = !!(game) && !roundOver && game.rollCount < 3;
+
+    Array.prototype.forEach.call(els.sumGrid.querySelectorAll('.sum-btn'), function(btn){
+      if(btn.getAttribute('data-kind') === 'doubles'){
+        btn.disabled = roundOver || inWindow;
+        return;
+      }
+      var sum = parseInt(btn.getAttribute('data-sum'), 10);
+      var onlyPossibleAsDoubles = (sum === 2 || sum === 12);
+      btn.disabled = roundOver || (!inWindow && onlyPossibleAsDoubles);
+      if(sum === 7){
+        btn.classList.toggle('seven-positive', inWindow);
+        btn.classList.toggle('seven-negative', !roundOver && !inWindow);
+      }
+    });
+    els.undoRollBtn.disabled = !lastGameSnapshot;
+  }
+
+  function applyDiceModeVisibility(){
+    var isPhysical = diceMode === 'physical';
+    els.virtualDiceSection.hidden = isPhysical;
+    els.virtualRollWrap.hidden = isPhysical;
+    els.physicalDiceSection.hidden = !isPhysical;
+  }
+
   els.startGameBtn.addEventListener('click', function(){
     if(pendingNames.length === 0){
       els.playerHint.textContent = 'Add at least one player to start.';
@@ -1037,10 +1193,12 @@
 
   function startGame(names, roundsTotal){
     game = createInitialState(names, roundsTotal);
+    lastGameSnapshot = null;
     els.setup.hidden = true;
     els.final.hidden = true;
     els.game.hidden = false;
     els.roundTotal.textContent = String(roundsTotal);
+    applyDiceModeVisibility();
     renderGameScreen();
   }
 
@@ -1116,6 +1274,7 @@
     els.rollPhaseLabel.textContent = phaseLabelFor(game);
     els.rollPhaseLabel.className = 'roll-phase' + (game.rollCount >= 3 ? ' warn' : '');
     els.rollBtn.disabled = game.roundOver;
+    refreshPhysicalDiceControls();
 
     els.rollerLine.textContent = (game.players.length > 1)
       ? game.players[game.currentRollerIndex].name + ' is next to roll.'
@@ -1140,7 +1299,7 @@
       els.die1.textContent = DIE_FACES[d1];
       els.die2.textContent = DIE_FACES[d2];
 
-      var outcome = applyRoll(game, d1, d2);
+      var outcome = applyRoll(game, d1 + d2, d1 === d2);
       renderGameScreen();
 
       if(outcome.roundJustEnded){
@@ -1152,8 +1311,51 @@
 
   els.rollBtn.addEventListener('click', animateDiceAndRoll);
 
+  // Logs a physically-rolled total (isDouble is always false for a plain
+  // number tap now — Doubles is its own dedicated action, see below).
+  // Takes a snapshot of the game before applying, so an accidental tap
+  // can be undone via either the in-game Undo button or the one offered
+  // on a bust overlay.
+  function logPhysicalRoll(sum, isDouble){
+    if(!game || game.roundOver) return;
+
+    lastGameSnapshot = JSON.parse(JSON.stringify(game));
+    var outcome = applyRoll(game, sum, isDouble);
+    renderGameScreen();
+
+    if(outcome.roundJustEnded){
+      finalizeRound(game);
+      showRoundOverlay(game);
+    }
+  }
+
+  // Logs a doubles roll. Only meaningful (and only enabled) once the first
+  // 3 rolls of the round are done — before that, doubles just count as
+  // their plain sum, which the matching number button already handles.
+  // The actual sum is irrelevant here per the "it doesn't matter which
+  // doubles" rule, so applyRoll's sum argument is unused in this branch.
+  function logDoublesRoll(){
+    if(!game || game.roundOver || game.rollCount < 3) return;
+    logPhysicalRoll(0, true);
+  }
+
+  // Shared by the in-game "Undo last roll" button and the matching
+  // button on a bust overlay. Restores the game to exactly how it was
+  // right before the most recently logged physical roll.
+  function undoLastRoll(){
+    if(!lastGameSnapshot) return;
+    game = lastGameSnapshot;
+    lastGameSnapshot = null;
+    els.overlay.hidden = true;
+    renderGameScreen();
+  }
+
+  els.undoRollBtn.addEventListener('click', undoLastRoll);
+  els.overlayUndoBtn.addEventListener('click', undoLastRoll);
+
   function handleBankClick(playerIndex){
     if(!game) return;
+    lastGameSnapshot = null; // a bank action locks in the current bank; earlier rolls are no longer undoable
     var outcome = applyBank(game, playerIndex);
     renderGameScreen();
     if(outcome.roundJustEnded){
@@ -1190,12 +1392,14 @@
     });
 
     els.continueBtn.textContent = (state.currentRound >= state.roundsTotal) ? 'See final results' : 'Next round';
+    els.overlayUndoBtn.hidden = !lastGameSnapshot;
     els.overlay.hidden = false;
     els.continueBtn.focus();
   }
 
   els.continueBtn.addEventListener('click', function(){
     els.overlay.hidden = true;
+    lastGameSnapshot = null;
     startNextRound(game);
     if(game.gameOver){
       showFinalScreen(game);
@@ -1298,6 +1502,7 @@
     pendingNames = game.players.map(function(p){ return p.name; });
     renderChips();
     setRoundsSelectionFromValue(game.roundsTotal);
+    lastGameSnapshot = null;
     els.overlay.hidden = true;
     els.game.hidden = true;
     els.final.hidden = true;
