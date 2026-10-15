@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="application-version" content="1.5.2">
-<!-- Bank v1.5.2 (2026-10-15): place the local-processing note outside the game region and hide it in immersive mode. -->
+<meta name="application-version" content="1.5.3">
+<!-- Bank v1.5.3 (2026-10-15): refine the open-source disclaimer and AI tools popup. -->
 <title>BANK Dice Game &mdash; shhosting.net</title>
 <meta name="description" content="Play Bank, a press-your-luck dice game. Play with app-rolled or physical dice, track scores, and resume your game after a refresh.">
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -226,49 +226,65 @@
     border-radius: 2px;
   }
   .ai-tools-trigger:hover{ color: var(--accent); }
+  .ai-tools-wrap{
+    position: relative;
+    display: inline-block;
+  }
+  .ai-tools-trigger{
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    cursor: help;
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  .ai-tools-trigger:hover{ color: var(--accent); }
   .ai-tools-popover{
     position: absolute;
-    right: clamp(16px, 6vw, 64px);
-    bottom: calc(100% + 6px);
-    z-index: 100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px 14px;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    z-index: 1000;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+    gap: 4px;
+    width: max-content;
     max-width: calc(100vw - 32px);
-    padding: 10px 14px;
+    padding: 8px;
     background: var(--surface);
     color: var(--structure);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0,0,0,0.22);
     font-size: 0.82rem;
-    line-height: 1.5;
+    line-height: 1.4;
     white-space: nowrap;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transform: translateY(4px);
+    transform: translate(-50%, 4px);
     transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
   }
   .ai-tools-popover a{
+    display: block;
+    padding: 8px 10px;
+    border-radius: 6px;
     color: var(--structure);
     text-decoration: none;
   }
   .ai-tools-popover a:hover,
   .ai-tools-popover a:focus-visible{
+    background: var(--surface-alt, var(--border));
     color: var(--accent);
-    text-decoration: underline;
+    text-decoration: none;
+    outline: none;
   }
-  .bank-footer:has(.ai-tools-trigger:hover) .ai-tools-popover,
-  .bank-footer:has(.ai-tools-popover:hover) .ai-tools-popover,
-  .bank-footer:has(.ai-tools-trigger:focus-visible) .ai-tools-popover,
-  .bank-footer:has(.ai-tools-popover:focus-within) .ai-tools-popover{
+  .ai-tools-wrap:has(.ai-tools-trigger:hover) .ai-tools-popover,
+  .ai-tools-wrap:has(.ai-tools-popover:hover) .ai-tools-popover,
+  .ai-tools-wrap:has(.ai-tools-trigger:focus-visible) .ai-tools-popover,
+  .ai-tools-wrap:has(.ai-tools-popover:focus-within) .ai-tools-popover{
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
-    transform: translateY(0);
+    transform: translate(-50%, 0);
   }
 
   .ledger{
@@ -967,17 +983,18 @@
 </main>
 
 <footer class="bank-footer">
-  <p class="tool-disclaimer">This game was built with the help of various AI agents, models, and platforms. Its code is <a href="https://github.com/shhosting/bank-dice-game">open source.</a><span class="footer-version">v1.5.2</span></p>
+  <p class="tool-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="footer-version">&middot; v1.5.3</span></p>
   <span class="footer-credit">
     <span class="footer-group">&copy; 2026 shhosting.net &middot; <a href="mailto:contact@shhosting.net">contact@shhosting.net</a></span>
-    <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; <span class="ai-tools-trigger" tabindex="0" aria-describedby="ai-tools-popover">Built with various AI tools</span></span>
+    <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; Built with various <span class="ai-tools-wrap"><span class="ai-tools-trigger" tabindex="0" aria-describedby="ai-tools-popover">AI tools</span>
+      <span class="ai-tools-popover" id="ai-tools-popover" role="group" aria-label="AI tools">
+        <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">OpenAI · ChatGPT</a>
+        <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">Anthropic · Claude</a>
+        <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Google · Gemini</a>
+        <a href="https://lumo.proton.me/" target="_blank" rel="noopener noreferrer">Proton · Lumo</a>
+      </span>
+    </span></span>
   </span>
-  <div class="ai-tools-popover" id="ai-tools-popover" role="group" aria-label="AI tools">
-    <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
-    <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">Claude</a>
-    <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Gemini</a>
-    <a href="https://lumo.proton.me/" target="_blank" rel="noopener noreferrer">Proton Lumo</a>
-  </div>
 </footer>
 
 <!-- Round result overlay -->
