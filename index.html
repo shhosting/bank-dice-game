@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="application-version" content="1.5.5">
-<!-- Bank v1.5.5 (2026-10-15): make the AI tools menu click-to-open with opaque, icon-led links. -->
+<meta name="application-version" content="1.5.6">
+<!-- Bank v1.5.6 (2026-10-15): make the AI tools menu click-to-open with opaque, icon-led links. -->
 <title>BANK Dice Game &mdash; shhosting.net</title>
 <meta name="description" content="Play Bank, a press-your-luck dice game. Play with app-rolled or physical dice, track scores, and resume your game after a refresh.">
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -211,7 +211,11 @@
     font-size: 0.8rem;
     opacity: 0.55;
   }
-  .bank-footer .footer-credit{ opacity: 0.55; }
+  .bank-footer .footer-credit{
+    /* Tint footer text instead of applying opacity to the entire subtree;
+       child popovers must remain fully opaque and clickable. */
+    color: color-mix(in srgb, var(--structure) 55%, transparent);
+  }
   .bank-footer .footer-version{
     display: inline-block;
     margin-left: 8px;
@@ -1035,7 +1039,7 @@
 </main>
 
 <footer class="bank-footer">
-  <p class="tool-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="footer-version">&middot; v1.5.5</span></p>
+  <p class="tool-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="footer-version">&middot; v1.5.6</span></p>
   <span class="footer-credit">
     <span class="footer-group">&copy; 2026 shhosting.net &middot; <a href="mailto:contact@shhosting.net">contact@shhosting.net</a></span>
     <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; Built with various <span class="ai-tools-wrap">
