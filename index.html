@@ -3,9 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="application-version" content="1.4.4">
-<!-- Bank v1.4.4 (2026-10-15): slightly darken the Reset game warning gradient. -->
-<title>Bank &mdash; the dice game</title>
+<meta name="application-version" content="1.5.0">
+<!-- Bank v1.5.0 (2026-10-15): integrate shhosting.net site shell and add an immersive layout toggle. -->
+<title>Bank Dice Game &mdash; shhosting.net</title>
+<meta name="description" content="Play Bank, a press-your-luck dice game. Play with app-rolled or physical dice, track scores, and resume your game after a refresh.">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/favicon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+<link rel="icon" href="/favicon-dark.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<meta name="theme-color" content="#f8fafc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1720" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Bank Dice Game &mdash; shhosting.net">
+<meta property="og:description" content="Play Bank, a press-your-luck dice game.">
+<meta property="og:image" content="https://shhosting.net/assets/img/og-image.png">
+<meta property="og:url" content="https://shhosting.net/bank-dice-game">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/assets/css/style.css">
 <style>
   :root{
     --vault: #12352B;
@@ -27,22 +41,108 @@
 
   *{ box-sizing: border-box; }
 
+  /* The shared site stylesheet owns the outer page, header, and footer.
+     Keep Bank's palette and game layout scoped to its own region. */
   body{
     margin: 0;
     min-height: 100vh;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  main.bank-main{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
+    text-align: center;
+    padding: clamp(24px, 3.5vw, 44px) clamp(16px, 3vw, 32px);
+    gap: 0;
+  }
+
+  .bank-game-region{
+    position: relative;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: clamp(18px, 3vw, 34px) 16px 26px;
+    border-radius: 14px;
     background:
       radial-gradient(ellipse at top, rgba(255,255,255,0.05), transparent 60%),
       var(--vault);
     color: var(--ink);
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    display: flex;
-    justify-content: center;
-    padding: clamp(16px, 4vw, 48px) 16px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.14);
   }
 
   .page{
     width: 100%;
     max-width: 640px;
+    margin: 0 auto;
+  }
+
+  .immersive-toggle{
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid var(--vault-line);
+    border-radius: 8px;
+    background: rgba(244,236,216,0.08);
+    color: var(--ledger);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+  }
+  .immersive-toggle:hover{
+    background: rgba(244,236,216,0.16);
+    border-color: var(--brass);
+  }
+  .immersive-toggle:active{ transform: translateY(1px); }
+  .immersive-toggle:focus-visible{
+    outline: 2px solid var(--brass-light);
+    outline-offset: 3px;
+  }
+  .immersive-toggle svg{
+    display: block;
+    width: 20px;
+    height: 20px;
+  }
+  .immersive-toggle .icon-restore{ display: none; }
+  body.immersive-mode header,
+  body.immersive-mode footer{ display: none; }
+  body.immersive-mode main.bank-main{
+    padding: 0;
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+  body.immersive-mode .bank-game-region{
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: clamp(22px, 3vw, 36px) 16px;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  body.immersive-mode .page{ max-width: 860px; }
+  body.immersive-mode .brand{ margin-bottom: 16px; }
+  body.immersive-mode .immersive-toggle .icon-expand{ display: none; }
+  body.immersive-mode .immersive-toggle .icon-restore{ display: block; }
+
+  @media (max-width: 560px){
+    main.bank-main{ padding: 18px 10px; }
+    .bank-game-region{ padding: 46px 10px 18px; border-radius: 10px; }
+    body.immersive-mode .bank-game-region{ padding: 54px 10px 18px; }
+    .brand .mark{ font-size: 1.8rem; }
   }
 
   .brand{
@@ -597,7 +697,39 @@
 </style>
 </head>
 <body>
-<div class="page">
+<header>
+  <a class="brand-link" href="/" aria-label="shhosting.net home">
+    <img class="logo-icon theme-swap light" src="/assets/img/logo-light.svg" alt="">
+    <img class="logo-icon theme-swap dark" src="/assets/img/logo-dark.svg" alt="">
+    <img class="logo-wordmark theme-swap light" src="/assets/img/wordmark-light.svg" alt="shhosting.net">
+    <img class="logo-wordmark theme-swap dark" src="/assets/img/wordmark-dark.svg" alt="shhosting.net">
+  </a>
+  <nav class="site-nav">
+    <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="navMenu" aria-label="Open menu">
+      <span class="nav-toggle-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+    </button>
+    <ul class="nav-menu" id="navMenu">
+      <li><a href="/checksum-verifier">Checksum Verifier</a></li>
+      <li><a href="/qr-code-generator">QR Code Generator</a></li>
+      <li><a href="/bank-dice-game" aria-current="page">Bank Dice Game</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main class="bank-main">
+  <section class="bank-game-region" aria-label="Bank dice game">
+    <button class="immersive-toggle" id="immersive-toggle" type="button"
+      aria-label="Enter immersive game mode" aria-pressed="false" title="Enter immersive game mode">
+      <svg class="icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M15 3h6v6M14 10l7-7"/>
+        <path d="M9 21H3v-6M3 21l7-7"/>
+      </svg>
+      <svg class="icon-restore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M8 3v5H3M16 21v-5h5"/>
+        <path d="M3 8l6-6M21 16l-6 6"/>
+      </svg>
+    </button>
+    <div class="page">
   <div class="brand">
     <p class="mark">Bank</p>
     <p class="sub">a press-your-luck dice game <span class="version">v1.4.4</span></p>
@@ -729,7 +861,16 @@
       </div>
     </div>
   </section>
-</div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span class="footer-credit">
+    <span class="footer-group">&copy; 2026 shhosting.net &middot; <a href="mailto:contact@shhosting.net">contact@shhosting.net</a></span>
+    <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; Built with <a href="https://claude.ai">Claude</a></span>
+  </span>
+</footer>
 
 <!-- Round result overlay -->
 <div class="overlay" id="round-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="overlay-stamp">
@@ -1934,8 +2075,21 @@
     persistState();
   });
 
+  var immersiveToggle = document.getElementById('immersive-toggle');
+  function setImmersiveMode(enabled){
+    document.body.classList.toggle('immersive-mode', enabled);
+    immersiveToggle.setAttribute('aria-pressed', String(enabled));
+    var label = enabled ? 'Exit immersive game mode' : 'Enter immersive game mode';
+    immersiveToggle.setAttribute('aria-label', label);
+    immersiveToggle.setAttribute('title', label);
+  }
+  immersiveToggle.addEventListener('click', function(){
+    setImmersiveMode(!document.body.classList.contains('immersive-mode'));
+  });
+
   restoreSavedState();
 })();
 </script>
+<script src="/assets/js/nav.js" defer></script>
 </body>
 </html>
