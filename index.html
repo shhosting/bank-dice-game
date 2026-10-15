@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="application-version" content="1.5.1">
-<!-- Bank v1.5.1 (2026-10-15): improve Escape handling, site attribution, and local-only labeling. -->
+<meta name="application-version" content="1.5.2">
+<!-- Bank v1.5.2 (2026-10-15): place the local-processing note outside the game region and hide it in immersive mode. -->
 <title>BANK Dice Game &mdash; shhosting.net</title>
 <meta name="description" content="Play Bank, a press-your-luck dice game. Play with app-rolled or physical dice, track scores, and resume your game after a refresh.">
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -181,7 +181,7 @@
     justify-content: center;
     gap: 8px;
     margin: 0 auto 18px;
-    color: var(--brass-light);
+    color: var(--ground);
     font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
     font-size: 11px;
     letter-spacing: 0.12em;
@@ -193,9 +193,10 @@
     height: 6px;
     flex: 0 0 6px;
     border-radius: 50%;
-    background: var(--brass-light);
-    box-shadow: 0 0 8px rgba(232,199,101,0.65);
+    background: var(--ground);
+    box-shadow: 0 0 8px var(--ground);
   }
+  body.immersive-mode .local-note{ display: none; }
 
   /* Keep the footer's usual muted styling, but leave the hover popup fully
      opaque so its links remain easy to read. */
@@ -816,6 +817,7 @@
 </header>
 
 <main class="bank-main">
+  <div class="local-note">Runs locally &middot; nothing uploaded</div>
   <section class="bank-game-region" aria-label="Bank dice game">
     <button class="immersive-toggle" id="immersive-toggle" type="button"
       aria-label="Enter immersive game mode" aria-pressed="false" title="Enter immersive game mode">
@@ -828,7 +830,6 @@
         <path d="M3 8l6-6M21 16l-6 6"/>
       </svg>
     </button>
-    <div class="local-note">Runs locally &middot; nothing uploaded</div>
     <div class="page">
   <div class="brand">
     <p class="mark">BANK</p>
@@ -966,7 +967,7 @@
 </main>
 
 <footer class="bank-footer">
-  <p class="tool-disclaimer">This game was built with the help of various AI agents, models, and platforms. Its code is <a href="https://github.com/shhosting/bank-dice-game">open source.</a><span class="footer-version">v1.5.1</span></p>
+  <p class="tool-disclaimer">This game was built with the help of various AI agents, models, and platforms. Its code is <a href="https://github.com/shhosting/bank-dice-game">open source.</a><span class="footer-version">v1.5.2</span></p>
   <span class="footer-credit">
     <span class="footer-group">&copy; 2026 shhosting.net &middot; <a href="mailto:contact@shhosting.net">contact@shhosting.net</a></span>
     <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; <span class="ai-tools-trigger" tabindex="0" aria-describedby="ai-tools-popover">Built with various AI tools</span></span>
