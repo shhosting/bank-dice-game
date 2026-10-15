@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="application-version" content="1.5.0">
-<!-- Bank v1.5.0 (2026-10-15): integrate shhosting.net site shell and add an immersive layout toggle. -->
-<title>Bank Dice Game &mdash; shhosting.net</title>
+<meta name="application-version" content="1.5.2">
+<!-- Bank v1.5.2 (2026-10-15): place the local-processing note outside the game region and hide it in immersive mode. -->
+<title>BANK Dice Game &mdash; shhosting.net</title>
 <meta name="description" content="Play Bank, a press-your-luck dice game. Play with app-rolled or physical dice, track scores, and resume your game after a refresh.">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" href="/favicon-light.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
@@ -123,8 +123,10 @@
   body.immersive-mode .bank-game-region{
     display: flex;
     flex: 1;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 14px;
     width: 100%;
     max-width: none;
     min-height: 100vh;
@@ -169,6 +171,104 @@
     font-size: 0.72rem;
     letter-spacing: 0.03em;
     white-space: nowrap;
+  }
+
+  /* The local-only note matches the other shhosting.net tools while
+     retaining enough contrast against Bank's dark green game surface. */
+  .local-note{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 auto 18px;
+    color: var(--ground);
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .local-note::before{
+    content: "";
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    border-radius: 50%;
+    background: var(--ground);
+    box-shadow: 0 0 8px var(--ground);
+  }
+  body.immersive-mode .local-note{ display: none; }
+
+  /* Keep the footer's usual muted styling, but leave the hover popup fully
+     opaque so its links remain easy to read. */
+  .bank-footer{
+    position: relative;
+    opacity: 1;
+  }
+  .bank-footer .tool-disclaimer{
+    max-width: none;
+    margin: 0 auto 5px;
+    text-align: center;
+    font-size: 0.8rem;
+    opacity: 0.55;
+  }
+  .bank-footer .footer-credit{ opacity: 0.55; }
+  .bank-footer .footer-version{
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+  .ai-tools-trigger{
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    cursor: help;
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  .ai-tools-trigger:hover{ color: var(--accent); }
+  .ai-tools-popover{
+    position: absolute;
+    right: clamp(16px, 6vw, 64px);
+    bottom: calc(100% + 6px);
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    max-width: calc(100vw - 32px);
+    padding: 10px 14px;
+    background: var(--surface);
+    color: var(--structure);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+  }
+  .ai-tools-popover a{
+    color: var(--structure);
+    text-decoration: none;
+  }
+  .ai-tools-popover a:hover,
+  .ai-tools-popover a:focus-visible{
+    color: var(--accent);
+    text-decoration: underline;
+  }
+  .bank-footer:has(.ai-tools-trigger:hover) .ai-tools-popover,
+  .bank-footer:has(.ai-tools-popover:hover) .ai-tools-popover,
+  .bank-footer:has(.ai-tools-trigger:focus-visible) .ai-tools-popover,
+  .bank-footer:has(.ai-tools-popover:focus-within) .ai-tools-popover{
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0);
   }
 
   .ledger{
@@ -717,6 +817,7 @@
 </header>
 
 <main class="bank-main">
+  <div class="local-note">Runs locally &middot; nothing uploaded</div>
   <section class="bank-game-region" aria-label="Bank dice game">
     <button class="immersive-toggle" id="immersive-toggle" type="button"
       aria-label="Enter immersive game mode" aria-pressed="false" title="Enter immersive game mode">
@@ -731,8 +832,8 @@
     </button>
     <div class="page">
   <div class="brand">
-    <p class="mark">Bank</p>
-    <p class="sub">a press-your-luck dice game <span class="version">v1.4.4</span></p>
+    <p class="mark">BANK</p>
+    <p class="sub">a press-your-luck dice game</p>
   </div>
 
   <!-- SETUP SCREEN -->
@@ -865,11 +966,18 @@
   </section>
 </main>
 
-<footer>
+<footer class="bank-footer">
+  <p class="tool-disclaimer">This game was built with the help of various AI agents, models, and platforms. Its code is <a href="https://github.com/shhosting/bank-dice-game">open source.</a><span class="footer-version">v1.5.2</span></p>
   <span class="footer-credit">
     <span class="footer-group">&copy; 2026 shhosting.net &middot; <a href="mailto:contact@shhosting.net">contact@shhosting.net</a></span>
-    <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; Built with <a href="https://claude.ai">Claude</a></span>
+    <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; <span class="ai-tools-trigger" tabindex="0" aria-describedby="ai-tools-popover">Built with various AI tools</span></span>
   </span>
+  <div class="ai-tools-popover" id="ai-tools-popover" role="group" aria-label="AI tools">
+    <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">ChatGPT</a>
+    <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer">Claude</a>
+    <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer">Gemini</a>
+    <a href="https://lumo.proton.me/" target="_blank" rel="noopener noreferrer">Proton Lumo</a>
+  </div>
 </footer>
 
 <!-- Round result overlay -->
@@ -2034,6 +2142,9 @@
   els.exitBtn.addEventListener('click', function(){ showConfirmation('exit-confirm'); });
 
   document.addEventListener('keydown', function(e){
+    // Ignore auto-repeat Escape keydowns. Holding Escape to leave browser
+    // fullscreen can otherwise repeatedly close/reopen this dialog.
+    if(e.key === 'Escape' && e.repeat) return;
     if(!els.confirmOverlay.hidden){
       if(e.key === 'Escape'){
         e.preventDefault();
