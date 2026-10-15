@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="application-version" content="1.4.4">
+<!-- Bank v1.4.4 (2026-10-15): slightly darken the Reset game warning gradient. -->
 <title>Bank &mdash; the dice game</title>
 <style>
   :root{
@@ -59,6 +61,14 @@
     margin: 4px 0 0;
     color: var(--brass-light);
     font-size: 0.85rem;
+  }
+  .brand .version{
+    display: inline-block;
+    margin-left: 6px;
+    color: var(--ledger-line);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
   }
 
   .ledger{
@@ -148,6 +158,14 @@
     box-shadow: inset 0 0 0 1.5px var(--vault-line);
   }
   .btn-outline:hover:not(:disabled){ background: rgba(18,53,43,0.06); }
+
+  /* Destructive action: filled warning gradient matching the primary button treatment. */
+  .btn-warning{
+    background: linear-gradient(180deg, #EAC8C2, #DFA79C 55%, #D08A7D);
+    color: #6B2419;
+    box-shadow: 0 2px 0 #AF6255, 0 4px 10px rgba(0,0,0,0.18);
+  }
+  .btn-warning:hover:not(:disabled){ filter: brightness(1.04); }
 
   .btn-ghost{
     background: transparent;
@@ -478,12 +496,24 @@
   }
   .stamp.bust{ color: var(--alert); }
   .stamp.clear{ color: var(--good); }
+  .stamp.confirm{ color: var(--vault); }
   .stamp-card p{ margin: 6px 0; }
   .overlay-actions{
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: 4px;
+  }
+  .confirm-actions > .btn{
+    flex: 1 1 0;
+    min-width: 0;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  @media (max-width: 460px){
+    .confirm-actions{ flex-direction: column; }
+    .confirm-actions > .btn{ flex: 0 0 auto; width: 100%; }
   }
   .round-scores{
     list-style: none;
@@ -570,7 +600,7 @@
 <div class="page">
   <div class="brand">
     <p class="mark">Bank</p>
-    <p class="sub">a press-your-luck dice game</p>
+    <p class="sub">a press-your-luck dice game <span class="version">v1.4.4</span></p>
   </div>
 
   <!-- SETUP SCREEN -->
@@ -597,7 +627,8 @@
           <button type="button" data-rounds="12" aria-pressed="true">12</button>
           <button type="button" data-rounds="custom" aria-pressed="false">Custom</button>
         </div>
-        <input type="number" id="custom-rounds-input" class="custom-rounds" min="1" max="999" value="9" hidden aria-label="Custom number of rounds">
+        <input type="number" id="custom-rounds-input" class="custom-rounds" min="1" max="999" step="1" value="9" hidden aria-label="Custom number of rounds" aria-describedby="rounds-hint">
+        <p class="hint" id="rounds-hint" role="status" hidden></p>
       </fieldset>
 
       <fieldset>
@@ -658,9 +689,10 @@
       <div class="physical-dice-entry" id="physical-dice-section" hidden>
         <p class="physical-prompt">Tap what you rolled</p>
         <div class="sum-grid" id="sum-grid" role="group" aria-label="Dice total or doubles"></div>
-        <div class="roll-btn-wrap">
-          <button type="button" class="btn btn-ghost small" id="undo-roll-btn" disabled>Undo last roll</button>
-        </div>
+      </div>
+
+      <div class="roll-btn-wrap">
+        <button type="button" class="btn btn-ghost small" id="undo-roll-btn" disabled>Undo last roll</button>
       </div>
 
       <table class="players">
@@ -712,6 +744,19 @@
   </div>
 </div>
 
+<!-- In-app confirmation dialog for restart and exit actions -->
+<div class="overlay" id="confirm-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-stamp">
+  <div class="stamp-card">
+    <div class="stamp confirm" id="confirm-stamp">CONFIRM</div>
+    <p id="confirm-message"></p>
+    <div class="overlay-actions confirm-actions">
+      <button type="button" class="btn btn-outline" id="confirm-cancel-btn">Cancel</button>
+      <button type="button" class="btn btn-brass" id="confirm-accept-btn">Confirm</button>
+      <button type="button" class="btn btn-warning" id="confirm-reset-page-btn" hidden>Reset game</button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function(){
   "use strict";
@@ -724,7 +769,7 @@
   function createInitialState(playerNames, roundsTotal){
     return {
       players: playerNames.map(function(name){
-        return { name: name, total: 0, roundScore: null, banked: false };
+        return { name: name, total: 0, roundScore: null, banked: false, busted: false };
       }),
       roundsTotal: roundsTotal,
       currentRound: 1,
@@ -793,6 +838,7 @@
         if(!p.banked){
           p.roundScore = 0;
           p.banked = true;
+          p.busted = true;
         }
       });
       state.roundOver = true;
@@ -815,6 +861,7 @@
     }
     p.banked = true;
     p.roundScore = state.bank;
+    p.busted = false;
 
     var allBanked = state.players.every(function(pl){ return pl.banked; });
     var roundJustEnded = false;
@@ -832,7 +879,7 @@
   // Adds each player's locked round score to their total and
   // records a history entry. Call once, right when a round ends.
   function finalizeRound(state){
-    var snapshot = { round: state.currentRound, bank: state.bank, bust: state.bustThisRound, scores: {} };
+    var snapshot = { round: state.currentRound, bank: state.bank, bust: state.bustThisRound, scores: Object.create(null) };
     state.players.forEach(function(p){
       var pts = p.roundScore || 0;
       p.total += pts;
@@ -857,6 +904,7 @@
     state.players.forEach(function(p){
       p.banked = false;
       p.roundScore = null;
+      p.busted = false;
     });
     return state;
   }
@@ -865,7 +913,15 @@
     var maxTotal = -Infinity;
     state.players.forEach(function(p){ if(p.total > maxTotal) maxTotal = p.total; });
     var ranked = state.players.slice().sort(function(a,b){ return b.total - a.total; });
-    return ranked.map(function(p){ return { name: p.name, total: p.total, isWinner: p.total === maxTotal }; });
+    var previousTotal = null;
+    var rank = 0;
+    return ranked.map(function(p, index){
+      if(index === 0 || p.total !== previousTotal){
+        rank = index + 1;
+      }
+      previousTotal = p.total;
+      return { name: p.name, total: p.total, rank: rank, isWinner: p.total === maxTotal };
+    });
   }
 
   /* Expose pure logic for Node-based unit testing only.
@@ -901,6 +957,7 @@
     playerHint: document.getElementById('player-hint'),
     roundsSegmented: document.getElementById('rounds-segmented'),
     customRoundsInput: document.getElementById('custom-rounds-input'),
+    roundsHint: document.getElementById('rounds-hint'),
     diceModeSegmented: document.getElementById('dice-mode-segmented'),
     startGameBtn: document.getElementById('start-game-btn'),
 
@@ -930,6 +987,13 @@
     overlayUndoBtn: document.getElementById('overlay-undo-btn'),
     continueBtn: document.getElementById('continue-btn'),
 
+    confirmOverlay: document.getElementById('confirm-overlay'),
+    confirmStamp: document.getElementById('confirm-stamp'),
+    confirmMessage: document.getElementById('confirm-message'),
+    confirmCancelBtn: document.getElementById('confirm-cancel-btn'),
+    confirmAcceptBtn: document.getElementById('confirm-accept-btn'),
+    confirmResetPageBtn: document.getElementById('confirm-reset-page-btn'),
+
     standingsList: document.getElementById('standings-list'),
     historyWrap: document.getElementById('history-table-wrap'),
     playAgainBtn: document.getElementById('play-again-btn'),
@@ -942,8 +1006,148 @@
   var selectedRoundsOption = '12';
   var diceMode = 'virtual'; // 'virtual' (app rolls) or 'physical' (player enters real dice)
   var game = null;
+  var virtualRollTimer = null;
+  var virtualRollToken = 0;
   var dragState = null; // { name: <player currently being dragged> } or null
-  var lastGameSnapshot = null; // single-level undo: game state right before the most recent logged physical roll
+  var lastGameSnapshot = null; // single-level undo: game state right before the most recent roll
+  var lastDiceFacesSnapshot = null; // die faces to restore with the game snapshot
+  var activeOverlay = null; // null, 'round', 'restart-confirm', or 'exit-confirm'
+  var confirmReturnFocus = null;
+  var restoringState = false;
+  var STORAGE_KEY = 'bank-dice-game-state-v1';
+  var STORAGE_SCHEMA = 1;
+
+  /* ---------- State persistence ---------- */
+
+  function currentScreen(){
+    if(!els.game.hidden) return 'game';
+    if(!els.final.hidden) return 'final';
+    return 'setup';
+  }
+
+  function persistState(){
+    if(restoringState) return;
+    try {
+      var overlay = !els.overlay.hidden ? 'round' : (!els.confirmOverlay.hidden ? activeOverlay : null);
+      var saved = {
+        schema: STORAGE_SCHEMA,
+        screen: currentScreen(),
+        game: game ? JSON.parse(JSON.stringify(game)) : null,
+        pendingNames: pendingNames.slice(),
+        selectedRoundsOption: selectedRoundsOption,
+        customRoundsValue: els.customRoundsInput.value,
+        nameInputValue: els.nameInput.value,
+        diceMode: diceMode,
+        dieFaces: { die1: els.die1.textContent, die2: els.die2.textContent },
+        lastGameSnapshot: lastGameSnapshot ? JSON.parse(JSON.stringify(lastGameSnapshot)) : null,
+        lastDiceFacesSnapshot: lastDiceFacesSnapshot ? {
+          die1: lastDiceFacesSnapshot.die1,
+          die2: lastDiceFacesSnapshot.die2
+        } : null,
+        overlay: overlay
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    } catch(e) {
+      // Storage may be unavailable in private browsing or restricted origins.
+      // Gameplay remains usable; persistence is best-effort in those contexts.
+    }
+  }
+
+  function validGameState(candidate){
+    return !!candidate && Array.isArray(candidate.players) && candidate.players.length > 0 &&
+      Number.isInteger(candidate.roundsTotal) && candidate.roundsTotal >= 1 && candidate.roundsTotal <= 999 &&
+      Number.isInteger(candidate.currentRound) && candidate.currentRound >= 1 && candidate.currentRound <= candidate.roundsTotal &&
+      Number.isFinite(candidate.bank) && Number.isInteger(candidate.rollCount) && candidate.rollCount >= 0 &&
+      Number.isInteger(candidate.currentRollerIndex) && candidate.currentRollerIndex >= 0 && candidate.currentRollerIndex < candidate.players.length &&
+      Array.isArray(candidate.history) && candidate.players.every(function(player){
+        return player && typeof player.name === 'string' && Number.isFinite(player.total) &&
+          (player.roundScore === null || Number.isFinite(player.roundScore)) &&
+          typeof player.banked === 'boolean';
+      });
+  }
+
+  function loadSavedState(){
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      if(!raw) return null;
+      var saved = JSON.parse(raw);
+      if(!saved || saved.schema !== STORAGE_SCHEMA) return null;
+      return saved;
+    } catch(e) {
+      return null;
+    }
+  }
+
+  function setDiceModeSelection(mode){
+    diceMode = mode === 'physical' ? 'physical' : 'virtual';
+    Array.prototype.forEach.call(els.diceModeSegmented.querySelectorAll('button'), function(btn){
+      btn.setAttribute('aria-pressed', btn.getAttribute('data-dice-mode') === diceMode ? 'true' : 'false');
+    });
+    applyDiceModeVisibility();
+  }
+
+  function restoreSavedState(){
+    var saved = loadSavedState();
+    if(!saved){
+      renderChips();
+      persistState();
+      return;
+    }
+
+    restoringState = true;
+    pendingNames = Array.isArray(saved.pendingNames)
+      ? saved.pendingNames.filter(function(name){ return typeof name === 'string'; }) : [];
+    selectedRoundsOption = ['3','6','12','custom'].indexOf(saved.selectedRoundsOption) !== -1
+      ? saved.selectedRoundsOption : '12';
+    els.customRoundsInput.value = typeof saved.customRoundsValue === 'string' ? saved.customRoundsValue : '9';
+    els.nameInput.value = typeof saved.nameInputValue === 'string' ? saved.nameInputValue : '';
+    Array.prototype.forEach.call(els.roundsSegmented.querySelectorAll('button'), function(btn){
+      btn.setAttribute('aria-pressed', btn.getAttribute('data-rounds') === selectedRoundsOption ? 'true' : 'false');
+    });
+    els.customRoundsInput.hidden = selectedRoundsOption !== 'custom';
+    setDiceModeSelection(saved.diceMode);
+    renderChips();
+
+    game = validGameState(saved.game) ? saved.game : null;
+    lastGameSnapshot = validGameState(saved.lastGameSnapshot) ? saved.lastGameSnapshot : null;
+    lastDiceFacesSnapshot = saved.lastDiceFacesSnapshot &&
+      typeof saved.lastDiceFacesSnapshot.die1 === 'string' && typeof saved.lastDiceFacesSnapshot.die2 === 'string'
+      ? saved.lastDiceFacesSnapshot : null;
+    if(saved.dieFaces){
+      if(typeof saved.dieFaces.die1 === 'string') els.die1.textContent = saved.dieFaces.die1;
+      if(typeof saved.dieFaces.die2 === 'string') els.die2.textContent = saved.dieFaces.die2;
+    }
+
+    els.overlay.hidden = true;
+    els.confirmOverlay.hidden = true;
+    activeOverlay = null;
+    if(game && (saved.screen === 'game' || saved.screen === 'final')){
+      pendingNames = game.players.map(function(player){ return player.name; });
+      els.setup.hidden = true;
+      if(saved.screen === 'final' || game.gameOver){
+        els.game.hidden = true;
+        els.final.hidden = false;
+        showFinalScreen(game);
+      } else {
+        els.final.hidden = true;
+        els.game.hidden = false;
+        applyDiceModeVisibility();
+        renderGameScreen();
+        if(saved.overlay === 'round' || game.roundOver){
+          showRoundOverlay(game);
+        } else if(saved.overlay === 'restart-confirm' || saved.overlay === 'exit-confirm'){
+          showConfirmation(saved.overlay);
+        }
+      }
+    } else {
+      game = null;
+      els.setup.hidden = false;
+      els.game.hidden = true;
+      els.final.hidden = true;
+    }
+    restoringState = false;
+    persistState();
+  }
 
   /* ---------- Setup screen ---------- */
 
@@ -1005,6 +1209,7 @@
       removeBtn.addEventListener('click', function(){
         pendingNames.splice(pendingNames.indexOf(name), 1);
         renderChips();
+        persistState();
       });
       actions.appendChild(removeBtn);
 
@@ -1026,6 +1231,7 @@
     pendingNames[target] = pendingNames[idx];
     pendingNames[idx] = tmp;
     renderChips();
+    persistState();
   }
 
   function beginDrag(name){
@@ -1059,6 +1265,7 @@
     document.removeEventListener('pointercancel', onDragPointerEnd);
     els.chipList.setAttribute('aria-live', 'polite');
     renderChips();
+    persistState();
   }
 
   function addPlayerFromInput(){
@@ -1074,9 +1281,11 @@
     els.nameInput.value = '';
     els.nameInput.focus();
     renderChips();
+    persistState();
   }
 
   els.addPlayerBtn.addEventListener('click', addPlayerFromInput);
+  els.nameInput.addEventListener('input', persistState);
   els.nameInput.addEventListener('keydown', function(e){
     if(e.key === 'Enter'){
       e.preventDefault();
@@ -1091,18 +1300,42 @@
         b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
       });
       els.customRoundsInput.hidden = selectedRoundsOption !== 'custom';
+      setRoundsError('');
       if(selectedRoundsOption === 'custom') els.customRoundsInput.focus();
+      persistState();
     });
   });
 
+  function setRoundsError(message){
+    els.roundsHint.textContent = message || '';
+    els.roundsHint.hidden = !message;
+    if(message){
+      els.customRoundsInput.setAttribute('aria-invalid', 'true');
+    } else {
+      els.customRoundsInput.removeAttribute('aria-invalid');
+    }
+  }
+
   function getRoundsTotal(){
     if(selectedRoundsOption === 'custom'){
-      var v = parseInt(els.customRoundsInput.value, 10);
-      if(!v || v < 1) v = 1;
-      return v;
+      var value = Number(els.customRoundsInput.value);
+      if(!Number.isInteger(value) || value < 1 || value > 999){
+        return null;
+      }
+      return value;
     }
     return parseInt(selectedRoundsOption, 10);
   }
+
+  els.customRoundsInput.addEventListener('input', function(){
+    var value = Number(els.customRoundsInput.value);
+    if(Number.isInteger(value) && value >= 1 && value <= 999){
+      setRoundsError('');
+    } else if(!els.roundsHint.hidden){
+      setRoundsError('Enter a whole number of rounds from 1 to 999.');
+    }
+    persistState();
+  });
 
   Array.prototype.forEach.call(els.diceModeSegmented.querySelectorAll('button'), function(btn){
     btn.addEventListener('click', function(){
@@ -1110,6 +1343,7 @@
       Array.prototype.forEach.call(els.diceModeSegmented.querySelectorAll('button'), function(b){
         b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
       });
+      persistState();
     });
   });
 
@@ -1170,7 +1404,7 @@
         btn.classList.toggle('seven-negative', !roundOver && !inWindow);
       }
     });
-    els.undoRollBtn.disabled = !lastGameSnapshot;
+    els.undoRollBtn.disabled = !lastGameSnapshot || virtualRollTimer !== null;
   }
 
   function applyDiceModeVisibility(){
@@ -1180,20 +1414,61 @@
     els.physicalDiceSection.hidden = !isPhysical;
   }
 
-  els.startGameBtn.addEventListener('click', function(){
+  function startGameFromSetup(){
     if(pendingNames.length === 0){
       els.playerHint.textContent = 'Add at least one player to start.';
       els.playerHint.style.color = 'var(--alert)';
       return;
     }
-    startGame(pendingNames.slice(), getRoundsTotal());
+    var roundsTotal = getRoundsTotal();
+    if(roundsTotal === null){
+      setRoundsError('Enter a whole number of rounds from 1 to 999.');
+      els.customRoundsInput.focus();
+      return;
+    }
+    setRoundsError('');
+    startGame(pendingNames.slice(), roundsTotal);
+  }
+
+  els.startGameBtn.addEventListener('click', startGameFromSetup);
+  // The setup screen is not a form, so Enter would otherwise do nothing in
+  // the custom rounds field. Run exactly the same validation/start path.
+  els.customRoundsInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      startGameFromSetup();
+    }
   });
 
   /* ---------- Game screen ---------- */
 
+  // Invalidates an in-flight virtual roll before game state or screens change.
+  // The token guard also protects against a timeout callback already queued by the browser.
+  function cancelPendingVirtualRoll(){
+    virtualRollToken += 1;
+    if(virtualRollTimer !== null){
+      window.clearTimeout(virtualRollTimer);
+      virtualRollTimer = null;
+    }
+    els.die1.classList.remove('rolling');
+    els.die2.classList.remove('rolling');
+    if(game && !game.roundOver){
+      els.rollBtn.disabled = false;
+    }
+    els.restartBtn.disabled = false;
+    els.exitBtn.disabled = false;
+  }
+
   function startGame(names, roundsTotal){
+    cancelPendingVirtualRoll();
     game = createInitialState(names, roundsTotal);
     lastGameSnapshot = null;
+    lastDiceFacesSnapshot = null;
+    activeOverlay = null;
+    els.overlay.hidden = true;
+    els.confirmOverlay.hidden = true;
+    els.die1.textContent = '\u200b';
+    els.die2.textContent = '\u200b';
     els.setup.hidden = true;
     els.final.hidden = true;
     els.game.hidden = false;
@@ -1228,7 +1503,7 @@
       if(!p.banked){
         tdStatus.textContent = 'In the round';
         tdStatus.className = 'status-active';
-      } else if(state.bustThisRound && p.roundScore === 0){
+      } else if(p.busted){
         tdStatus.textContent = 'Bust \u2014 0';
         tdStatus.className = 'status-bust';
       } else {
@@ -1268,7 +1543,11 @@
   }
 
   function renderGameScreen(){
+    // Render the total from authoritative game state as well as the current
+    // round. On refresh, the markup's default total must not overwrite the
+    // saved game's configured round count (especially for custom games).
     els.roundCurrent.textContent = String(game.currentRound);
+    els.roundTotal.textContent = String(game.roundsTotal);
     els.rollCountLabel.textContent = 'Roll ' + game.rollCount;
     els.bankValue.textContent = game.bank.toLocaleString();
     els.rollPhaseLabel.textContent = phaseLabelFor(game);
@@ -1281,21 +1560,45 @@
       : '';
 
     renderPlayersTable(game);
+    // Round completion is saved by showRoundOverlay after finalizeRound adds history.
+    if(!game.roundOver) persistState();
   }
 
   function animateDiceAndRoll(){
-    if(!game || game.roundOver) return;
+    if(!game || game.roundOver || virtualRollTimer !== null) return;
     els.rollBtn.disabled = true;
 
     var d1 = 1 + Math.floor(Math.random() * 6);
     var d2 = 1 + Math.floor(Math.random() * 6);
+    var thisRollToken = ++virtualRollToken;
 
     els.die1.classList.add('rolling');
     els.die2.classList.add('rolling');
+    els.undoRollBtn.disabled = true;
+    // Prevent conflicting actions until the virtual result commits.
+    els.restartBtn.disabled = true;
+    els.exitBtn.disabled = true;
+    Array.prototype.forEach.call(els.playersTbody.querySelectorAll('.bank-player-btn'), function(btn){
+      btn.disabled = true;
+    });
 
-    window.setTimeout(function(){
+    virtualRollTimer = window.setTimeout(function(){
+      if(thisRollToken !== virtualRollToken){
+        return;
+      }
+      virtualRollTimer = null;
       els.die1.classList.remove('rolling');
       els.die2.classList.remove('rolling');
+      els.restartBtn.disabled = false;
+      els.exitBtn.disabled = false;
+
+      if(!game || game.roundOver || els.game.hidden){
+        if(game && !game.roundOver) els.rollBtn.disabled = false;
+        return;
+      }
+
+      lastGameSnapshot = JSON.parse(JSON.stringify(game));
+      lastDiceFacesSnapshot = { die1: els.die1.textContent, die2: els.die2.textContent };
       els.die1.textContent = DIE_FACES[d1];
       els.die2.textContent = DIE_FACES[d2];
 
@@ -1320,6 +1623,7 @@
     if(!game || game.roundOver) return;
 
     lastGameSnapshot = JSON.parse(JSON.stringify(game));
+    lastDiceFacesSnapshot = { die1: els.die1.textContent, die2: els.die2.textContent };
     var outcome = applyRoll(game, sum, isDouble);
     renderGameScreen();
 
@@ -1339,13 +1643,19 @@
     logPhysicalRoll(0, true);
   }
 
-  // Shared by the in-game "Undo last roll" button and the matching
-  // button on a bust overlay. Restores the game to exactly how it was
-  // right before the most recently logged physical roll.
+  // Shared by the in-game Undo button and the button on a bust overlay.
+  // Restores game state and the visible dice to their pre-roll values.
   function undoLastRoll(){
-    if(!lastGameSnapshot) return;
+    if(!lastGameSnapshot || virtualRollTimer !== null) return;
     game = lastGameSnapshot;
     lastGameSnapshot = null;
+    activeOverlay = null;
+    els.confirmOverlay.hidden = true;
+    if(lastDiceFacesSnapshot){
+      els.die1.textContent = lastDiceFacesSnapshot.die1;
+      els.die2.textContent = lastDiceFacesSnapshot.die2;
+    }
+    lastDiceFacesSnapshot = null;
     els.overlay.hidden = true;
     renderGameScreen();
   }
@@ -1354,8 +1664,9 @@
   els.overlayUndoBtn.addEventListener('click', undoLastRoll);
 
   function handleBankClick(playerIndex){
-    if(!game) return;
+    if(!game || virtualRollTimer !== null) return;
     lastGameSnapshot = null; // a bank action locks in the current bank; earlier rolls are no longer undoable
+    lastDiceFacesSnapshot = null;
     var outcome = applyBank(game, playerIndex);
     renderGameScreen();
     if(outcome.roundJustEnded){
@@ -1393,13 +1704,18 @@
 
     els.continueBtn.textContent = (state.currentRound >= state.roundsTotal) ? 'See final results' : 'Next round';
     els.overlayUndoBtn.hidden = !lastGameSnapshot;
+    els.confirmOverlay.hidden = true;
+    activeOverlay = 'round';
     els.overlay.hidden = false;
     els.continueBtn.focus();
+    persistState();
   }
 
   els.continueBtn.addEventListener('click', function(){
     els.overlay.hidden = true;
+    activeOverlay = null;
     lastGameSnapshot = null;
+    lastDiceFacesSnapshot = null;
     startNextRound(game);
     if(game.gameOver){
       showFinalScreen(game);
@@ -1421,7 +1737,7 @@
       if(s.isWinner) li.className = 'winner';
       var place = document.createElement('span');
       place.className = 'place';
-      place.textContent = (idx + 1) + '.';
+      place.textContent = s.rank + '.';
       var name = document.createElement('span');
       name.className = 'name';
       name.textContent = s.name + (s.isWinner ? ' \u2014 winner' : '');
@@ -1435,6 +1751,10 @@
     });
 
     renderHistoryTable(state);
+    activeOverlay = null;
+    els.overlay.hidden = true;
+    els.confirmOverlay.hidden = true;
+    persistState();
   }
 
   function renderHistoryTable(state){
@@ -1499,48 +1819,122 @@
   // reconfiguring (add/remove a player, change round count) doesn't
   // require retyping everyone's name.
   function exitToSetupKeepingPlayers(){
+    cancelPendingVirtualRoll();
     pendingNames = game.players.map(function(p){ return p.name; });
     renderChips();
     setRoundsSelectionFromValue(game.roundsTotal);
     lastGameSnapshot = null;
+    lastDiceFacesSnapshot = null;
+    game = null;
+    activeOverlay = null;
     els.overlay.hidden = true;
+    els.confirmOverlay.hidden = true;
     els.game.hidden = true;
     els.final.hidden = true;
     els.setup.hidden = false;
     els.nameInput.focus();
+    persistState();
   }
 
-  els.restartBtn.addEventListener('click', function(){
-    if(window.confirm('Restart this game? Scores for all ' + game.roundsTotal + ' rounds will reset to zero.')){
-      restartWithSamePlayers();
+  function showConfirmation(kind, shouldFocus){
+    if(virtualRollTimer !== null) return;
+    activeOverlay = kind;
+    confirmReturnFocus = document.activeElement;
+    els.overlay.hidden = true;
+    if(kind === 'restart-confirm'){
+      els.confirmStamp.textContent = 'RESTART GAME?';
+      els.confirmMessage.textContent = 'Start this game over from round 1? All scores and round history for this game will be reset.';
+      els.confirmAcceptBtn.textContent = 'Restart game';
+      els.confirmResetPageBtn.hidden = true;
+    } else {
+      activeOverlay = 'exit-confirm';
+      els.confirmStamp.textContent = 'EXIT TO SETUP?';
+      els.confirmMessage.textContent = 'Return to setup with your player names and round count preserved, or reset the page to its initial state and clear the saved game and setup selections.';
+      els.confirmAcceptBtn.textContent = 'Keep players & rounds';
+      els.confirmResetPageBtn.hidden = false;
     }
-  });
+    els.confirmOverlay.hidden = false;
+    if(shouldFocus !== false) els.confirmCancelBtn.focus();
+    persistState();
+  }
 
-  els.exitBtn.addEventListener('click', function(){
-    if(window.confirm('Exit to setup? This game\u2019s progress will be lost.')){
+  function closeConfirmation(restoreFocus){
+    els.confirmOverlay.hidden = true;
+    activeOverlay = null;
+    persistState();
+    if(restoreFocus !== false && confirmReturnFocus && typeof confirmReturnFocus.focus === 'function'){
+      confirmReturnFocus.focus();
+    }
+    confirmReturnFocus = null;
+  }
+
+  function resetPageCompletely(){
+    // Remove only this game's saved state; don't disturb other apps on this origin.
+    try { window.localStorage.removeItem(STORAGE_KEY); } catch(e) {}
+    cancelPendingVirtualRoll();
+    window.location.reload();
+  }
+
+  els.confirmCancelBtn.addEventListener('click', function(){ closeConfirmation(true); });
+  els.confirmResetPageBtn.addEventListener('click', function(){
+    if(activeOverlay === 'exit-confirm') resetPageCompletely();
+  });
+  els.confirmAcceptBtn.addEventListener('click', function(){
+    var action = activeOverlay;
+    closeConfirmation(false);
+    if(action === 'restart-confirm'){
+      restartWithSamePlayers();
+    } else if(action === 'exit-confirm'){
       exitToSetupKeepingPlayers();
     }
   });
+
+  els.restartBtn.addEventListener('click', function(){ showConfirmation('restart-confirm'); });
+  els.exitBtn.addEventListener('click', function(){ showConfirmation('exit-confirm'); });
 
   document.addEventListener('keydown', function(e){
-    if(e.key !== 'Escape') return;
-    if(els.game.hidden || !els.overlay.hidden) return;
-    if(window.confirm('Exit to setup? This game\u2019s progress will be lost.')){
-      exitToSetupKeepingPlayers();
+    if(!els.confirmOverlay.hidden){
+      if(e.key === 'Escape'){
+        e.preventDefault();
+        closeConfirmation(true);
+      } else if(e.key === 'Tab'){
+        // Keep keyboard focus inside the active confirmation dialog.
+        var focusable = [els.confirmCancelBtn, els.confirmAcceptBtn, els.confirmResetPageBtn].filter(function(btn){
+          return !btn.hidden && !btn.disabled;
+        });
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if(e.shiftKey && document.activeElement === first){
+          e.preventDefault(); last.focus();
+        } else if(!e.shiftKey && document.activeElement === last){
+          e.preventDefault(); first.focus();
+        }
+      }
+      return;
     }
+    if(e.key !== 'Escape') return;
+    if(els.game.hidden || !els.overlay.hidden || virtualRollTimer !== null) return;
+    showConfirmation('exit-confirm');
   });
 
   els.playAgainBtn.addEventListener('click', restartWithSamePlayers);
 
   els.newGameBtn.addEventListener('click', function(){
     pendingNames = [];
+    game = null;
+    lastGameSnapshot = null;
+    lastDiceFacesSnapshot = null;
+    activeOverlay = null;
     renderChips();
+    els.overlay.hidden = true;
+    els.confirmOverlay.hidden = true;
     els.final.hidden = true;
     els.setup.hidden = false;
     els.nameInput.focus();
+    persistState();
   });
 
-  renderChips();
+  restoreSavedState();
 })();
 </script>
 </body>
