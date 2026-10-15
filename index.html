@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="application-version" content="1.5.5">
-<!-- Bank v1.5.5 (2026-10-15): make the AI tools menu click-to-open with opaque, icon-led links. -->
+<meta name="application-version" content="1.5.6">
+<!-- Bank v1.5.6 (2026-10-15): keep the AI tools popover opaque without changing footer opacity. -->
 <title>BANK Dice Game &mdash; shhosting.net</title>
 <meta name="description" content="Play Bank, a press-your-luck dice game. Play with app-rolled or physical dice, track scores, and resume your game after a refresh.">
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -198,8 +198,8 @@
   }
   body.immersive-mode .local-note{ display: none; }
 
-  /* Keep the footer's usual muted styling, but leave the hover popup fully
-     opaque so its links remain easy to read. */
+  /* Keep the footer's usual opacity. The AI tools popover is moved to the
+     document body so it does not inherit that opacity. */
   .bank-footer{
     position: relative;
     opacity: 1;
@@ -252,9 +252,9 @@
     outline-offset: 3px;
   }
   .ai-tools-popover{
-    position: absolute;
-    left: 50%;
-    bottom: calc(100% + 10px);
+    position: fixed;
+    left: 0;
+    bottom: 0;
     z-index: 1000;
     display: flex;
     flex-direction: column;
@@ -1035,7 +1035,7 @@
 </main>
 
 <footer class="bank-footer">
-  <p class="tool-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="footer-version">&middot; v1.5.5</span></p>
+  <p class="tool-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="footer-version">&middot; v1.5.6</span></p>
   <span class="footer-credit">
     <span class="footer-group">&copy; 2026 shhosting.net &middot; <a href="mailto:contact@shhosting.net">contact@shhosting.net</a></span>
     <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; Built with various <span class="ai-tools-wrap">
@@ -2288,15 +2288,55 @@
   var aiToolsTrigger = document.getElementById('ai-tools-trigger');
   var aiToolsMenu = document.getElementById('ai-tools-popover');
 
+  // The footer credit deliberately uses opacity for consistent light/dark
+  // theme treatment. Move the popover out of that faded subtree so the menu
+  // and its background remain fully opaque.
+  document.body.appendChild(aiToolsMenu);
+
+  function positionAiToolsMenu(){
+    if(aiToolsMenu.hidden) return;
+
+    var triggerRect = aiToolsTrigger.getBoundingClientRect();
+    var viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    var viewportHeight = window.innerHeight;
+
+    // Measure the menu before setting its final position, then clamp its
+    // center so it remains within the viewport on narrow screens.
+    aiToolsMenu.style.left = '0px';
+    aiToolsMenu.style.bottom = '0px';
+    var menuRect = aiToolsMenu.getBoundingClientRect();
+    var halfMenuWidth = menuRect.width / 2;
+    var desiredCenter = triggerRect.left + triggerRect.width / 2;
+    var minCenter = 16 + halfMenuWidth;
+    var maxCenter = viewportWidth - 16 - halfMenuWidth;
+    var center = maxCenter < minCenter
+      ? viewportWidth / 2
+      : Math.min(Math.max(desiredCenter, minCenter), maxCenter);
+
+    aiToolsMenu.style.left = center + 'px';
+    aiToolsMenu.style.bottom = Math.max(0, viewportHeight - triggerRect.top + 10) + 'px';
+  }
+
   function setAiToolsMenuOpen(open, focusFirstLink){
-    aiToolsMenu.hidden = !open;
-    aiToolsMenu.classList.toggle('is-open', open);
+    if(open){
+      aiToolsMenu.hidden = false;
+      aiToolsMenu.classList.add('is-open');
+      positionAiToolsMenu();
+    } else {
+      aiToolsMenu.classList.remove('is-open');
+      aiToolsMenu.hidden = true;
+    }
     aiToolsTrigger.setAttribute('aria-expanded', String(open));
     if(open && focusFirstLink){
       var firstLink = aiToolsMenu.querySelector('a');
       if(firstLink) firstLink.focus();
     }
   }
+
+  window.addEventListener('resize', positionAiToolsMenu);
+  window.addEventListener('scroll', function(){
+    if(!aiToolsMenu.hidden) positionAiToolsMenu();
+  }, true);
 
   aiToolsTrigger.addEventListener('click', function(e){
     e.stopPropagation();
@@ -2310,7 +2350,7 @@
   });
 
   document.addEventListener('click', function(e){
-    if(!aiToolsMenu.hidden && !aiToolsMenu.contains(e.target) && e.target !== aiToolsTrigger){
+    if(!aiToolsMenu.hidden && !aiToolsMenu.contains(e.target) && !aiToolsTrigger.contains(e.target)){
       setAiToolsMenuOpen(false, false);
     }
   });
