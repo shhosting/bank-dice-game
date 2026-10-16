@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="application-version" content="1.5.7">
-<!-- Bank v1.5.7 (2026-10-15): keep the AI tools popover opaque without changing footer opacity. -->
+<meta name="application-version" content="1.5.8">
+<!-- Bank v1.5.8 (2026-10-15): keep the AI tools popover opaque without changing footer opacity. -->
 <title>BANK Dice Game &mdash; shhosting.net</title>
 <meta name="description" content="Play Bank, a press-your-luck dice game. Play with app-rolled or physical dice, track scores, and resume your game after a refresh.">
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -750,6 +750,10 @@
   }
   .overlay[hidden]{ display: none; }
   .stamp-card{
+    /* Dialog cards use Bank's light ledger surface in both themes, so pin
+       their default text to the matching dark ink instead of inheriting the
+       site's light-mode/dark-mode body text color. */
+    color: var(--ink);
     background: var(--ledger);
     border-radius: var(--radius);
     max-width: 420px;
@@ -1042,7 +1046,7 @@
 </main>
 
 <footer class="bank-footer">
-  <p class="tool-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="footer-version">&middot; v1.5.7</span></p>
+  <p class="tool-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="footer-version">&middot; v1.5.8</span></p>
   <span class="footer-credit">
     <span class="footer-group">&copy; 2026 shhosting.net &middot; <a href="mailto:contact@shhosting.net">contact@shhosting.net</a></span>
     <span class="footer-group">&middot; Hosted on <a href="https://pages.github.com/">GitHub Pages</a> &middot; Built with various <span class="ai-tools-wrap">
