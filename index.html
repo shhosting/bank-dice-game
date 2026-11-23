@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<meta name="application-version" content="1.5.8">
-<!-- Bank v1.5.8 (2026-10-15): keep the AI tools popover opaque without changing footer opacity. -->
+<meta name="application-version" content="1.5.9">
+<!-- Bank v1.5.9 (2026-11-23): use the shared site shell and align the game disclaimer with its footer. -->
 <title>BANK Dice Game &mdash; shhosting.net</title>
 <meta name="description" content="Play Bank, a press-your-luck dice game. Play with app-rolled or physical dice, track scores, and resume your game after a refresh.">
 <link rel="icon" href="/favicon.ico" sizes="any">
@@ -202,7 +202,7 @@
   /* Preserve the Bank-specific open-source note while using the shared site footer. */
   .bank-disclaimer{
     max-width: none;
-    margin: 0 auto 5px;
+    margin: 0 auto -14px;
     text-align: center;
     font-size: 0.8rem;
     opacity: 0.55;
@@ -897,7 +897,7 @@
   </section>
 </main>
 
-<p class="bank-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="bank-version">&middot; v1.5.8</span></p>
+<p class="bank-disclaimer">This game's code is <a href="https://github.com/shhosting/bank-dice-game">open source</a> <span class="bank-version">&middot; v1.5.9</span></p>
 
 <!-- Round result overlay -->
 <div class="overlay" id="round-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="overlay-stamp">
