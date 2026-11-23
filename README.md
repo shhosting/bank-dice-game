@@ -3,7 +3,7 @@
 A browser-based implementation of **Bank**, a press-your-luck dice game for playing with friends using either app-rolled dice or physical dice.
 
 - **Play online:** https://shhosting.net/bank-dice-game
-- **Current version:** 1.5.6
+- **Current version:** 1.5.9
 - **License:** MIT (see [LICENSE](LICENSE))
 
 ## Features
