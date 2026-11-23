@@ -1245,6 +1245,9 @@
           p.busted = true;
         }
       });
+      // The player who rolled the bust ends the round. Start the next
+      // round with the following player, wrapping around when needed.
+      state.currentRollerIndex = (state.currentRollerIndex + 1) % state.players.length;
       state.roundOver = true;
       state.bustThisRound = true;
       roundJustEnded = true;
@@ -1270,6 +1273,9 @@
     var allBanked = state.players.every(function(pl){ return pl.banked; });
     var roundJustEnded = false;
     if(allBanked){
+      // The final player to bank ends the round. Start the next round
+      // with the player after them, wrapping around when needed.
+      state.currentRollerIndex = (playerIndex + 1) % state.players.length;
       state.roundOver = true;
       state.bustThisRound = false;
       roundJustEnded = true;
